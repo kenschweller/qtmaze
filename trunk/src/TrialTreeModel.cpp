@@ -27,6 +27,14 @@ QStringList TrialTreeModel::mimeTypes() const
 	return result;
 }
 
+void TrialTreeModel::appendMazeFile(const QString &filename)
+{
+	QFileInfo fileInfo(filename);
+	QStandardItem * const newItem = new QStandardItem(fileInfo.fileName());
+	newItem->setData(filename);
+	appendRow(newItem);
+}
+
 bool TrialTreeModel::dropMimeData(const QMimeData *mimeData, Qt::DropAction action, int row, int column, const QModelIndex &parent)
 {
 	if (QStandardItemModel::dropMimeData(mimeData, action, row, column, parent))

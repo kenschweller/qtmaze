@@ -9,11 +9,16 @@
 
 TrialTreeView::TrialTreeView(QWidget *parent) : QTreeView(parent)
 {
-	setDragEnabled(true);
-	setAcceptDrops(true);
-	setDropIndicatorShown(true);
+	slot_SetEnabled(true);
 }
 
 TrialTreeView::~TrialTreeView()
 {
+}
+
+void TrialTreeView::slot_SetEnabled(bool enabled)
+{
+	setDragEnabled(enabled);
+	setAcceptDrops(enabled);
+	setDropIndicatorShown(enabled);
 }

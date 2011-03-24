@@ -9,6 +9,8 @@ class TrialTreeView : public QTreeView
 public:
 	TrialTreeView(QWidget *parent = NULL);
 	~TrialTreeView();
+public slots:
+	void slot_SetEnabled(bool enabled);
 protected:
 	// void dragEnterEvent(QDragEnterEvent *event);
 	// void dragLeaveEvent(QDragLeaveEvent *event);

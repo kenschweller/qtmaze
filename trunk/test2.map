@@ -18,5 +18,5 @@ walls
 ...------...-...
 ................
 start row 0 col 0 side north
-goal row 0 col 0
+goal row 3 col 0
 goal row 6 col 9
