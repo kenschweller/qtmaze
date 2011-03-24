@@ -18,7 +18,7 @@
 #include <QStyle>
 #include <QMessageBox>
 
-QtMaze::QtMaze(QWidget *parent) : QMainWindow(parent), settings(QSettings::UserScope, "forestdarling.com", "QtMaze")
+QtMaze::QtMaze(QWidget *parent) : QMainWindow(parent), settings(QSettings::UserScope, "forestdarling.com", "QtMaze"), testing(false)
 {
 	workingDirectory.setPath(settings.value("working_directory").toString());
 	if (!restoreGeometry(settings.value("window_geometry").toByteArray()))
@@ -189,14 +189,16 @@ void QtMaze::slot_ViewFullscreen(bool fullscreen)
 		setWindowState(windowState() | Qt::WindowFullScreen);
 		toolbar->hide();
 		imageDock->hide();
-		// menuBar()->hide();
+		browserDock->hide();
+		trialPane->hide();
 	}
 	else
 	{
 		setWindowState(windowState() & ~Qt::WindowFullScreen);
 		toolbar->show();
 		imageDock->show();
-		// menuBar()->show();
+		browserDock->show();
+		trialPane->show();
 	}
 }
 
@@ -222,10 +224,16 @@ void QtMaze::slot_SwitchToMouselookMode()
 
 void QtMaze::slot_Run()
 {
+	trialPane->restart();
+	const QString nextFilename = trialPane->getNextMaze();
+	if (nextFilename.size() == 0)
+		return;
+	
 	mazeWidget3d->setParticipantName(_participantName->text());
 	mazeWidget3d->setParticipating(true);
-	mazeWidget3d->restart(true);
+	// mazeWidget3d->restart(true);
 	slot_SwitchToMouselookMode();
+	mazeWidget3d->open(nextFilename, true);
 }
 
 void QtMaze::slot_Test()
@@ -233,15 +241,19 @@ void QtMaze::slot_Test()
 	mazeWidget3d->setParticipantName(_participantName->text());
 	mazeWidget3d->setParticipating(false);
 	mazeWidget3d->restart(true);
+	testing = true;
 	slot_SwitchToMouselookMode();
 }
 
 void QtMaze::slot_MazeCompleted(const QString &filename)
 {
-	if (filename.size() == 0)
+	if (filename.size() == 0 || testing)
 	{
+		testing = false;
 		mazeWidget3d->restart(false);
 		return;
 	}
-	mazeWidget3d->open(filename, true);
+	const QString nextFilename = trialPane->getNextMaze();
+	if (nextFilename.size() > 0)
+		mazeWidget3d->open(nextFilename, true);
 }

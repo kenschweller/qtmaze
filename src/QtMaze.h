@@ -51,6 +51,7 @@ protected:
 	MazeWidget3D *mazeWidget3d;
 	NewDialog *newDialog;
 	QLineEdit *_participantName;
+	bool testing;
 };
 
 #endif

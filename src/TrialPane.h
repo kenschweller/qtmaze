@@ -2,14 +2,31 @@
 #define TRIALPANE_H
 
 #include <QDockWidget>
-class QStandardItemModel;
+#include <QModelIndex>
+class TrialTreeModel;
+class QPushButton;
 
 class TrialPane : public QDockWidget
 {
+	Q_OBJECT
 public:
 	TrialPane(QWidget *parent = NULL);
+	
+	void restart();
+	QString getNextMaze();
+protected slots:
+	void slot_New();
+	void slot_Open();
+	void slot_Save();
+	void slot_SaveAs();
+	
+	void slot_ModelChanged();
 protected:
-	QStandardItemModel *_model;
+	void _Save(const QString &filename);
+	TrialTreeModel *_model;
+	QModelIndex _nextMaze;
+	QString _listFilename;
+	QPushButton *saveButton;
 };
 
 #endif

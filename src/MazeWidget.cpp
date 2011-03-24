@@ -748,7 +748,7 @@ void MazeWidget3D::paintGL()
 	{
 		// oldMaze = maze;
 		// glNewList(displayListMaze, GL_COMPILE);
-		maze.drawGrid();
+		maze.drawGrid(); // if (!playing)
 		maze.draw();
 		// glEndList();
 	}
@@ -764,7 +764,7 @@ void MazeWidget3D::paintGL()
 		glColor3f(1.0, 1.0, 1.0);
 	}
 
-	logger.draw();
+	// logger.draw();
 
 	_DrawCamera();
 }
