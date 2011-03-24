@@ -61,7 +61,7 @@ QPoint MazeWidget3D::_Unproject(const QPoint &point)
 	return rayEnd.toPoint();
 }
 
-MazeWidget3D::MazeWidget3D(QWidget *parent) : QGLWidget(parent), mode(MODE_EDITING), occupation(OCCUPATION_NONE), scaleFactor(1.0), editingScaleFactor(3.0), joystick(NULL), verticalOffset(0), horizontalOffset(0), displayListMaze(0)
+MazeWidget3D::MazeWidget3D(QWidget *parent) : QGLWidget(parent), mode(MODE_EDITING), occupation(OCCUPATION_NONE), scaleFactor(1.0), editingScaleFactor(3.0), joystick(NULL), verticalOffset(0), horizontalOffset(0), displayListMaze(0), goalSound("data/sounds/goal.wav")
 {
 	_participating = false;
 	camera = maze.getStartingCamera();
@@ -287,8 +287,8 @@ void MazeWidget3D::slot_Advance()
 		if (maze.mapPointInGoalRadius(camera.position.toPoint()))
 		{
 			// printf("WHOAAA\n");
-			QSound sound("data/sounds/goal.wav");
-			sound.play();
+			
+			goalSound.play();
 			SleeperThread::Sleep(1);
 			camera.position.setX(100.0);
 			camera.position.setY(300.0);
