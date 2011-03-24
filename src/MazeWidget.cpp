@@ -1,4 +1,5 @@
 #include "MazeWidget.h"
+#include "engine/defines.h"
 
 #include <QApplication>
 #include <QFileInfo>
@@ -35,18 +36,18 @@ QPoint MazeWidget3D::_Unproject(const QPoint &point)
 	glGetDoublev(GL_MODELVIEW_MATRIX, modelviewMatrix);
 	glGetDoublev(GL_PROJECTION_MATRIX, projectionMatrix);
 	glGetIntegerv(GL_VIEWPORT, viewport);
-	
+
 	GLdouble x, y, z;
 	GLdouble x2, y2, z2;
 	gluUnProject(point.x(), height() - point.y(), 0.0, modelviewMatrix, projectionMatrix, viewport, &x, &y, &z);
 	gluUnProject(point.x(), height() - point.y(), 1.0, modelviewMatrix, projectionMatrix, viewport, &x2, &y2, &z2);
-	
+
 	QVector3D rayEnd(x, y, z);
 	/*QVector3D rayStart(x2, y2, z2);
-	
-	const QVector3D mapCenter = QVector3D(maze.getWidth()/2, maze.getHeight()/2, -250.0/2);// + tumble.position;
+
+	const QVector3D mapCenter = QVector3D(maze.getWidth()/2, maze.getHeight()/2, -GRID_SIZE/2);// + tumble.position;
 	QVector3D viewFrom = mapCenter - tumble.view*(maze.getWidth() > maze.getHeight() ? maze.getWidth() : maze.getHeight())*1.3*scaleFactor;
-	
+
 	if (mode == MODE_OVERVIEW)
 	{
 		rayEnd = viewFrom - (rayEnd - viewFrom).normalized()*viewFrom.z();
@@ -56,7 +57,7 @@ QPoint MazeWidget3D::_Unproject(const QPoint &point)
 		// rayEnd -= camera.position;
 		rayEnd = camera.position - camera.view*camera.position.z();
 	}*/
-	
+
 	return rayEnd.toPoint();
 }
 
@@ -66,19 +67,20 @@ MazeWidget3D::MazeWidget3D(QWidget *parent) : QGLWidget(parent), mode(MODE_EDITI
 	camera = maze.getStartingCamera();
 	tumble.view = QVector3D(0.0, 0.0, 1.0);
 	tumble.up = QVector3D(0.0, -1.0, 0.0);
-	
+
 	setMouseTracking(mode == MODE_EDITING);
 	for (unsigned int i = 0; i < ARRAYSIZE(holdingKeys); i++)
 		holdingKeys[i] = 0;
-	
+
 	connect(&timer, SIGNAL(timeout()), this, SLOT(slot_Advance()));
 	timer.setInterval(10);
 	timer.start();
-	
+
 	setAcceptDrops(true);
-	
+
 	// grabKeyboard();
-	
+	setFocusPolicy(Qt::StrongFocus);
+
 	/*{
 		// Print the names of all attached joysticks
 		const int num_joy = SDL_NumJoysticks();
@@ -86,13 +88,13 @@ MazeWidget3D::MazeWidget3D(QWidget *parent) : QGLWidget(parent), mode(MODE_EDITI
 		for(int i=0;i<num_joy;i++)
 			printf("%d: %s\n", i, SDL_JoystickName(i));
 	}*/
-	
+
 	quadric = gluNewQuadric();
-	
+
 	if (SDL_NumJoysticks() > 0)
 		joystick = SDL_JoystickOpen(0);
 	// printf("joystick = %x\n", (int)joystick);
-	
+
 	oldMaze.reset(0, 0);
 	reset(10, 10);
 }
@@ -232,17 +234,17 @@ void MazeWidget3D::slot_Advance()
 {
 	if (mode != MODE_MOUSELOOK && mode != MODE_OVERVIEW)
 		return;
-	
+
 	// static int qqq = 0;
 	// printf("%04i: slot_Advance()\n", qqq);
-	
+
 	float forward_dir = 0.0;
 	float   right_dir = 0.0;
 	if (holdingKeys[HOLDING_FORWARD]) forward_dir += 1.0;
 	if (holdingKeys[HOLDING_BACKWARD]) forward_dir -= 1.0;
 	if (holdingKeys[HOLDING_STRAFELEFT]) right_dir -= 1.0;
 	if (holdingKeys[HOLDING_STRAFERIGHT]) right_dir += 1.0;
-	
+
 	float dx = 0.0;
 	if (holdingKeys[HOLDING_TURNLEFT]) dx -= 1.0;
 	if (holdingKeys[HOLDING_TURNRIGHT]) dx += 1.0;
@@ -259,13 +261,13 @@ void MazeWidget3D::slot_Advance()
 		dx += static_cast<float>(x_axis)/8.0;
 		forward_dir += static_cast<float>(y_axis)/16.0;
 	}
-	
+
 	QVector3D direction = ((camera.getForward() * forward_dir) + (camera.getRight() * right_dir));
-	
+
 	// simulate a car backing up behavior
 	// if (forward_dir < 0.0)
 		// dx = -dx;
-	
+
 	if (!direction.isNull() || dx != 0.0)
 	{
 		// printf("%04i: slot_Advance(): doing something!\n\n");
@@ -278,10 +280,10 @@ void MazeWidget3D::slot_Advance()
 		logger.log(camera.position.x(), camera.position.y(), viewLine.angle());
 		if (mode == MODE_MOUSELOOK)
 			camera.moveView(dx*TURNING_SPEED, 0.0);
-		
+
 		_SetupModelMatrix();
 		updateGL();
-		
+
 		if (maze.mapPointInGoalRadius(camera.position.toPoint()))
 		{
 			// printf("WHOAAA\n");
@@ -295,18 +297,18 @@ void MazeWidget3D::slot_Advance()
 			emit(completedMaze(_filename));
 		}
 	}
-	
+
 	// qqq++;
 }
 
 void MazeWidget3D::dragEnterEvent(QDragEnterEvent *event)
 {
 	const QPoint mapPoint = _Unproject(event->pos());
-	
+
 	if (event->mimeData()->hasFormat("application/x-qtmaze-startingorientation"))
 	{
 		event->acceptProposedAction();
-		
+
 		const Orientation orientation = maze.getNearestOrientation(mapPoint);
 		maze.setStartingOrientation(orientation);
 		updateGL();
@@ -405,13 +407,21 @@ void MazeWidget3D::dropEvent(QDropEvent *event)
 		updateGL();
 	}
 }
+
+void MazeWidget3D::focusOutEvent(QFocusEvent *event)
+{
+	for (unsigned int i = 0; i < ARRAYSIZE(holdingKeys); i++)
+		holdingKeys[i] = false;
+	QGLWidget::focusOutEvent(event);
+}
+
 #include <QMenu>
 void MazeWidget3D::contextMenuEvent(QContextMenuEvent *event)
 {
 	const QPoint mapPoint = _Unproject(event->pos());
 	const Orientation orientation = maze.getNearestOrientation(mapPoint);
 	const QPoint tile = orientation.tile;
-	
+
 	event->accept();
 	QMenu menu;
 	QAction * const goalAction = menu.addAction("Add Goal");
@@ -440,17 +450,17 @@ void MazeWidget3D::mousePressEvent(QMouseEvent *event)
 {
 	if (occupation != OCCUPATION_NONE)
 		return;
-	
+
 	lastPos = event->pos();
 	if (mode == MODE_EDITING)
 	{
 		if (event->button() == Qt::LeftButton)
 		{
 			const QPoint mapPoint = _Unproject(event->pos());
-			
+
 			const Orientation orientation = maze.getNearestOrientation(mapPoint);
 			const QString filename = maze.getPicture(orientation).filename;
-			if (QLineF(camera.position.toPoint(), mapPoint).length() < 50)
+			if (QLineF(camera.position.toPoint(), mapPoint).length() < CAMERA_RADIUS)
 			{
 				QDrag * const drag = new QDrag(this);
 				{
@@ -482,7 +492,7 @@ void MazeWidget3D::mousePressEvent(QMouseEvent *event)
 				}
 
 				drag->start(Qt::CopyAction | Qt::MoveAction);
-				
+
 				delete drag;
 			}
 			else if (maze.mapPointInGoalRadius(mapPoint))
@@ -543,12 +553,12 @@ void MazeWidget3D::mouseReleaseEvent(QMouseEvent *event)
 void MazeWidget3D::mouseMoveEvent(QMouseEvent *event)
 {
 	static const float DIVISOR = 20;
-	
+
 	const QPoint newPos = event->pos();
 	const float dx = static_cast<float>(newPos.x() - lastPos.x())/DIVISOR;
 	const float dy = static_cast<float>(newPos.y() - lastPos.y())/DIVISOR;
 	lastPos = event->pos();
-	
+
 	if (mode == MODE_MOUSELOOK || mode == MODE_OVERVIEW)
 	{
 		if (mode == MODE_MOUSELOOK)
@@ -597,7 +607,7 @@ void MazeWidget3D::wheelEvent(QWheelEvent *event)
 			updateGL();
 			emit(zoomChanged());
 		}
-		
+
 		event->accept();
 	}
 	else if (mode == MODE_EDITING)
@@ -613,7 +623,7 @@ void MazeWidget3D::wheelEvent(QWheelEvent *event)
 			updateGL();
 			emit(zoomChanged());
 		}
-		
+
 		event->accept();
 	}
 }
@@ -630,7 +640,7 @@ void MazeWidget3D::keyPressEvent(QKeyEvent *event)
 		case Qt::Key_D: holdingKeys[HOLDING_STRAFERIGHT]++; break;
 		case Qt::Key_Left: holdingKeys[HOLDING_TURNLEFT]++; break;
 		case Qt::Key_Right: holdingKeys[HOLDING_TURNRIGHT]++; break;
-		
+
 		case Qt::Key_Z:
 		case Qt::Key_X:
 		if (mode == MODE_EDITING)
@@ -645,8 +655,8 @@ void MazeWidget3D::keyPressEvent(QKeyEvent *event)
 			emit(zoomChanged());
 		}
 		break;
-		
-		
+
+
 		default:
 		QGLWidget::keyPressEvent(event);
 	}
@@ -664,11 +674,19 @@ void MazeWidget3D::keyReleaseEvent(QKeyEvent *event)
 		case Qt::Key_D: holdingKeys[HOLDING_STRAFERIGHT]--; break;
 		case Qt::Key_Left: holdingKeys[HOLDING_TURNLEFT]--; break;
 		case Qt::Key_Right: holdingKeys[HOLDING_TURNRIGHT]--; break;
-		
+
 		default:
 		QGLWidget::keyReleaseEvent(event);
 	}
 }
+
+#ifndef GL_LIGHT_MODEL_COLOR_CONTROL
+#define GL_LIGHT_MODEL_COLOR_CONTROL 0x81F8
+#endif
+
+#ifndef GL_SEPARATE_SPECULAR_COLOR
+#define GL_SEPARATE_SPECULAR_COLOR 0x81FA
+#endif
 
 void MazeWidget3D::initializeGL()
 {
@@ -679,22 +697,41 @@ void MazeWidget3D::initializeGL()
 	// glClearColor(1.0, 1.0, 1.0, 0.0);
 	glClearColor(245/255.0, 245/255.0, 220/255.0, 0.0);
 	glEnable(GL_CULL_FACE);
-	
+
+	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+
+	/*glShadeModel(GL_SMOOTH);
+	glDisable(GL_LINE_SMOOTH);*/
+
+	/*glEnable(GL_LIGHTING);
+	glEnable(GL_NORMALIZE);
+	glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);*/
+	// glEnable(GL_RESCALE_NORMAL);
+
 	// displayListMaze = glGenLists(1);
-	
+
 	maze.setContext(this);
 }
 
 void MazeWidget3D::resizeGL(int w, int h)
 {
 	glViewport(0, 0, w, h);
-	
+
 	_SetupModelMatrix();
 	_SetupProjectionMatrix();
 }
 #include <QLineF>
 void MazeWidget3D::paintGL()
 {
+	/*static GLfloat LightAmbient[] = { 0.5f, 0.5f, 0.5f, 1.0f };
+	static GLfloat LightDiffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	static GLfloat LightPosition[] = { 0.0f, 0.0f, -100.0f, 1.0f };
+	// static GLfloat LightPosition[] = {1.0, 0.5, 1.0, 0.0};
+	glLightfv(GL_LIGHT1, GL_AMBIENT, LightAmbient);
+	glLightfv(GL_LIGHT1, GL_DIFFUSE, LightDiffuse);
+	glLightfv(GL_LIGHT1, GL_POSITION, LightPosition);
+	glEnable(GL_LIGHT1);*/
+	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	// if (!(maze == oldMaze))
 	{
@@ -715,9 +752,9 @@ void MazeWidget3D::paintGL()
 		glEnd();
 		glColor3f(1.0, 1.0, 1.0);
 	}
-	
+
 	logger.draw();
-	
+
 	_DrawCamera();
 }
 
@@ -730,9 +767,9 @@ void MazeWidget3D::_SetupProjectionMatrix()
 {
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	
+
 	const GLfloat aspectRatio = calculateAspectRatio();
-	
+
 	if (mode == MODE_MOUSELOOK || mode == MODE_OVERVIEW)
 	{
 		gluPerspective(45.0, aspectRatio, 10, 100000.0);
@@ -740,21 +777,21 @@ void MazeWidget3D::_SetupProjectionMatrix()
 	else if (mode == MODE_EDITING)
 	{
 		// const GLfloat mazeAspectRatio = maze.getWidth()/maze.getHeight();
-		
+
 		// const GLfloat ratio = aspectRatio/mazeAspectRatio;
-		
+
 		// const GLfloat widthRatio = std::max(static_cast<GLfloat>(1.0), aspectRatio)/std::max(static_cast<GLfloat>(1.0), mazeAspectRatio);
 		// const GLfloat heightRatio = std::max(static_cast<GLfloat>(1.0), static_cast<GLfloat>(1.0)/aspectRatio)/std::max(static_cast<GLfloat>(1.0), static_cast<GLfloat>(1.0)/mazeAspectRatio);
-		
+
 		// const GLfloat widthRatio = std::max(static_cast<GLfloat>(1.0), aspectRatio);
 		// const GLfloat heightRatio = std::max(static_cast<GLfloat>(1.0), static_cast<GLfloat>(1.0)/(aspectRatio));
-		
+
 		// const GLfloat mazeWidth = std::max(maze.getWidth(), maze.getHeight());
 		// const GLfloat mazeHeight = mazeWidth;
-		
+
 		const GLfloat viewWidth = width();
 		const GLfloat viewHeight = height();
-		
+
 		glOrtho(-viewWidth*editingScaleFactor,
 				viewWidth*editingScaleFactor,
 				viewHeight*editingScaleFactor,
@@ -817,7 +854,7 @@ void MazeWidget3D::_SetupModelMatrix()
 {
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	
+
 	if (mode == MODE_MOUSELOOK)
 	{
 		camera.setupMatrices();
@@ -827,14 +864,14 @@ void MazeWidget3D::_SetupModelMatrix()
 		// const GLfloat mazeAspectRatio = maze.getWidth()/maze.getHeight();
 		// const GLfloat aspectRatio = calculateAspectRatio();
 		// const GLfloat mazeSize = std::min(maze.getWidth(), maze.getHeight());
-		
+
 		glTranslatef(-horizontalOffset, -verticalOffset, 0.0);
-		
+
 		/*if (aspectRatio > 1.0)
 			glTranslatef((aspectRatio - 1.0)*mazeSize/2.0, 0.0, 0.0);
 		else
 			glTranslatef(0.0, (1.0/aspectRatio - 1.0)*mazeSize/2.0, 0.0);
-		
+
 		if (mazeAspectRatio < 1.0)
 			glTranslatef(0.0, -(maze.getHeight()-maze.getWidth())/2.0, 0.0);
 		else
@@ -842,10 +879,10 @@ void MazeWidget3D::_SetupModelMatrix()
 	}
 	else if (mode == MODE_OVERVIEW)
 	{
-		const QVector3D mapCenter = QVector3D(overviewHorizontalOffset, overviewVerticalOffset, -250.0/2);// + tumble.position;
+		const QVector3D mapCenter = QVector3D(overviewHorizontalOffset, overviewVerticalOffset, -GRID_SIZE/2);// + tumble.position;
 		const QVector3D viewFrom = mapCenter - tumble.view*(maze.getWidth() > maze.getHeight() ? maze.getWidth() : maze.getHeight())*1.3*scaleFactor;
 		const QVector3D up = QVector3D(0.0, -1.0, 0.0);
-		
+
 		Camera outerSpaceView(viewFrom, (mapCenter - viewFrom).normalized(), up);
 		outerSpaceView.setupMatrices();
 	}
@@ -857,22 +894,22 @@ void MazeWidget3D::_DrawCamera()
 	{
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
-		
+
 		glTranslatef(camera.position.x(), camera.position.y(), camera.position.z());
 		glRotatef(180.0, 1.0, 0.0, 0.0);
 		glColor3f(0.0, 0.0, 1.0);
 		gluDisk(quadric, 95.0, 100.0, 32, 32);
 		glColor3f(1.0, 1.0, 1.0);
-		
+
 		glPopMatrix();
 	}
-	
+
 	// draw an camera indicator
 	if (mode != MODE_MOUSELOOK)
 	{
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
-		
+
 		glTranslatef(camera.position.x(), camera.position.y(), camera.position.z());
 		const QLineF viewLine(0.0, 0.0, camera.view.x(), camera.view.y());
 		const QLineF viewLine2(0.0, 0.0, -camera.view.z(), viewLine.length());
@@ -895,7 +932,7 @@ void MazeWidget3D::_DrawCamera()
 		glTranslatef(0.0, 0.0, -10.0);
 		gluSphere(quadric, 20.0, 16, 16);
 		glColor3f(1.0, 1.0, 1.0);
-		
+
 		glPopMatrix();
 	}
 }

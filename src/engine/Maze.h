@@ -1,7 +1,6 @@
 #ifndef MAZE_H
 #define MAZE_H
 
-#include <QVector>
 #include <QMap>
 #include <QSet>
 #include <QPoint>
@@ -9,32 +8,14 @@
 #include "Camera.h"
 #include "Orientation.h"
 #include "Pictures.h"
+#include "Walls.h"
+#include "Tiles.h"
 class QGLWidget;
 
 uint qHash(const QPoint &p);
 
 class Maze
 {
-public:
-	enum Walls
-	{
-		NoWalls   = 0,
-		NorthWall = (1 << 0),
-		SouthWall = (1 << 1),
-		WestWall  = (1 << 2),
-		EastWall  = (1 << 3),
-		HorizontalWall  =  EastWall | WestWall,
-		VerticalWall    = NorthWall | SouthWall,
-		WestTees     = VerticalWall | WestWall,
-		EastTee      = VerticalWall | EastWall,
-		NorthTee   = HorizontalWall | NorthWall,
-		SouthTee   = HorizontalWall | SouthWall,
-		NorthWestCorner = NorthWall | WestWall,
-		NorthEastCorner = NorthWall | EastWall,
-		SouthWestCorner = SouthWall | WestWall,
-		SouthEastCorner = SouthWall | EastWall,
-		Intersection = VerticalWall | HorizontalWall
-	};
 public:
 	Maze();
 	
@@ -50,15 +31,15 @@ public:
 	Camera getStartingCamera();
 	float getWidth() const;
 	float getHeight() const;
-	Orientation getStartingOrientation() const;
-	bool containsTile(const QPoint &tile) const;
-	bool containsVertex(const QPoint &vertex) const;
+	Orientation getStartingOrientation() const {return startingOrientation;}
+	bool containsTile(const QPoint &tile) const {return tiles.contains(tile);}
+	bool containsVertex(const QPoint &vertex) const {return walls.contains(vertex);}
 	bool mapPointInGoalRadius(const QPoint &point) const;
 	
 	QPoint getNearestVertex(const QPoint &point) const;
 	QPoint getNearestTile(const QPoint &point) const;
 	Orientation getNearestOrientation(const QPoint &point) const;
-	Pictures::Picture getPicture(const Orientation &orientation) const;
+	Pictures::Picture getPicture(const Orientation &orientation) const {return pictures.at(orientation);}
 	
 	void setStartingOrientation(const Orientation &orientation);
 	
@@ -67,10 +48,10 @@ public:
 	void removeWall(const QPoint &a, const QPoint &b);
 	
 	void addPicture(const Orientation &orientation, const QString &filename);
-	void removePicture(const Orientation &orientation);
+	void removePicture(const Orientation &orientation) {pictures.remove(orientation);}
 	
 	void addGoal(const QPoint &p);
-	void removeGoal(const QPoint &p);
+	void removeGoal(const QPoint &p) {goalTiles.remove(p);}
 	
 	void startDroppingImage(const QString &filename);
 	void moveDroppingImage(const QPoint &p);
@@ -86,29 +67,18 @@ public:
 	
 	QPointF addDisplacement(const QPointF &position, QPointF displacement) const;
 	
-	void drawGrid();
-	void draw();
+	void drawGrid() const;
+	void draw() const;
 protected:
-	int & vertexAt(const QPoint &p) {return walls[p.y()*(width+1) + p.x()];}
-	int & vertexAt(int row, int col) {return walls[row*(width+1) + col];}
-	bool & tileAt(const QPoint &p) {return tiles[p.y()*width + p.x()];}
-	bool & tileAt(int row, int col) {return tiles[row*width + col];}
-	int vertexAt(const QPoint &p) const {return walls[p.y()*(width+1) + p.x()];}
-	int vertexAt(int row, int col) const {return walls[row*(width+1) + col];}
-	bool tileAt(int row, int col) const {return tiles[row*width + col];}
-	// bool tileAt(int row, int col) const {return tiles[row*width + col];}
-	
 	void _RefreshTiles();
-	void _DrawGoal(const QPoint &goal);
-	void _DrawFloor();
-	void _DrawCeiling();
-	void _DrawEditorWallTops();
-	void _DrawWalls();
+	void _DrawStartingOrientation() const;
+	void _DrawGoals() const;
+	void _DrawGoal(const QPoint &goal) const;
 	
 	int width;
 	int height;
-	QVector<int>  walls;
-	QVector<bool> tiles;
+	Walls walls;
+	Tiles tiles;
 	Pictures pictures;
 	Orientation startingOrientation;
 	typedef QSet<QPoint> GoalSet;
@@ -128,9 +98,6 @@ protected:
 	} dropping;
 	
 	QGLWidget *context;
-	unsigned int floorTexture;
-	unsigned int ceilingTexture;
-	unsigned int wallTexture;
 };
 
 #endif

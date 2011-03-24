@@ -39,6 +39,8 @@ private:
 	void _PopulateToolbars();
 	void _CreateDocks();
 protected:
+	void keyPressEvent(QKeyEvent *event);
+	
 	QSettings settings;
 	QDir workingDirectory;
 	QToolBar *toolbar;

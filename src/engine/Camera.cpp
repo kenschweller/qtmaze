@@ -1,4 +1,5 @@
 #include "Camera.h"
+#include "defines.h"
 
 // #include <QtOpenGL>
 #ifdef Q_WS_MAC
@@ -8,7 +9,7 @@
 #endif
 #include <QQuaternion>
 
-Camera::Camera() : position(0.5*250.0, 0.5*250.0, -250.0/2.0), view(0.0, -1.0, 0.0), up(0.0, 0.0, -1.0)
+Camera::Camera() : position(0.5*GRID_SIZE, 0.5*GRID_SIZE, -GRID_SIZE/2.0), view(0.0, -1.0, 0.0), up(0.0, 0.0, -1.0)
 {	
 }
 

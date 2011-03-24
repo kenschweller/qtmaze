@@ -29,18 +29,18 @@ QtMaze::QtMaze(QWidget *parent) : QMainWindow(parent), settings(QSettings::UserS
 	{
 		workingDirectory = QDir::current();
 	}
-	
+
 	setCentralWidget(mazePane = new MazePane(this));
 	mazeWidget3d = mazePane->getMazeWidget3d();
 	connect(mazeWidget3d, SIGNAL(completedMaze(const QString &)), this, SLOT(slot_MazeCompleted(const QString &)));
-	
+
 	toolbar = new QToolBar(this);
 	toolbar->setFloatable(false);
 	toolbar->setMovable(false);
 	_CreateDocks();
 	_CreateMenus();
 	_PopulateToolbars();
-	
+
 	newDialog = new NewDialog(settings, this);
 }
 
@@ -61,13 +61,13 @@ void QtMaze::_CreateMenus()
 	fileMenu->addAction("Close");
 	fileMenu->addSeparator();
 	fileMenu->addAction("Exit", this, SLOT(close()));
-	
+
 	QMenu * const editMenu = menuBar()->addMenu("&Edit");
 	editMenu->addAction("Undo");
 	editMenu->addAction("Redo");
 	editMenu->addSeparator();
 	editMenu->addAction("Preferences");
-	
+
 	QMenu * const viewMenu = menuBar()->addMenu("&View");
 	QAction * const fullscreenAction = viewMenu->addAction("Fullscreen", this, SLOT(slot_ViewFullscreen(bool)), QKeySequence("Alt+Return"));
 	QAction * const showFilePaneAction = viewMenu->addAction("Show File Pane", browserDock, SLOT(setVisible(bool)));
@@ -104,7 +104,7 @@ void QtMaze::_PopulateToolbars()
 	toolbar->addAction("Run Trials", this, SLOT(slot_Run()));
 	toolbar->addAction("Test Map (no logging)", this, SLOT(slot_Test()));
 	addToolBar(toolbar);
-	
+
 	editingModeAction->setChecked(true);
 }
 #include <cstdio>
@@ -113,10 +113,15 @@ void QtMaze::_CreateDocks()
 	addDockWidget(Qt::LeftDockWidgetArea, browserDock = new FilePane(this));
 	// browserDock->hide();
 	addDockWidget(Qt::RightDockWidgetArea, imageDock = new ImagePane(this));
-	
+
 	connect(browserDock, SIGNAL(mapFileActivated(const QString &)), mazeWidget3d, SLOT(open(const QString &)));
-	
+
 	addDockWidget(Qt::LeftDockWidgetArea, trialPane = new TrialPane(this));
+}
+
+void QtMaze::keyPressEvent(QKeyEvent *event)
+{
+	printf("Whoa\n");
 }
 
 void QtMaze::slot_FileNew()
@@ -160,7 +165,7 @@ void QtMaze::slot_FileSave()
 	}
 	else
 		slot_FileSaveAs();
-	
+
 }
 
 void QtMaze::slot_FileSaveAs()

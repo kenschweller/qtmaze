@@ -6,6 +6,8 @@ HEADERS = \
 	src/engine/defines.h \
 	src/engine/Orientation.h \
 	src/engine/Pictures.h \
+	src/engine/Walls.h \
+	src/engine/Tiles.h \
 	src/engine/Maze.h \
 	src/engine/Camera.h \
 	src/engine/PositionLogger.h \
@@ -21,6 +23,8 @@ HEADERS = \
 SOURCES = \
 	src/engine/Orientation.cpp \
 	src/engine/Pictures.cpp \
+	src/engine/Walls.cpp \
+	src/engine/Tiles.cpp \
 	src/engine/Maze.cpp \
 	src/engine/Camera.cpp \
 	src/engine/PositionLogger.cpp \

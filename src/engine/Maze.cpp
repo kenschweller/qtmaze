@@ -4,8 +4,10 @@
 #include <QGLWidget>
 #include <QFile>
 #include <QTextStream>
+#include <QLineF>
 
 #include <cstdlib>
+#include <cmath>
 
 #define ARRAYSIZE(x) (sizeof(x)/sizeof(x[0]))
 
@@ -14,7 +16,7 @@ uint qHash(const QPoint &p)
 	return (p.y() << 16) + p.x();
 }
 
-Maze::Maze() : context(NULL), floorTexture(0), ceilingTexture(0), wallTexture(0)
+Maze::Maze() : context(NULL)
 {
 	reset(16, 16);
 }
@@ -28,7 +30,7 @@ Maze & Maze::operator=(const Maze &other)
 	pictures = other.pictures;
 	startingOrientation = other.startingOrientation;
 	goalTiles = other.goalTiles;
-	
+
 	return *this;
 	// pictureTextures = other.pictureTextures;
 }
@@ -51,12 +53,10 @@ void Maze::reset(int newWidth, int newHeight)
 {
 	width = newWidth;
 	height = newHeight;
-	tiles.resize(width*height);
-	walls.resize((width+1)*(height + 1));
-	tiles.fill(0);
-	walls.fill(0);
-	for (int i = 0; i < tiles.size(); i++)
-		tiles[i] = false;
+	tiles.resize(width, height);
+	walls.resize(width, height);
+	tiles.clear();
+	walls.clear();
 	startingOrientation = Orientation();
 	goalTiles.clear();
 	goalTiles.insert(QPoint(0, 0));
@@ -69,25 +69,26 @@ bool Maze::load(const QString &filename)
 	QFile file(filename);
 	if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
 		return false;
-	
+
 	int newWidth = 0;
 	int newHeight = 0;
-	QVector<bool> newTiles;
-	QVector<int> newWalls;
+	int newSize = 0;
+	Walls newWalls;
 	GoalSet newGoalTiles;
 	Pictures newPictures;
+	newWalls.setContext(context);
 	newPictures.setContext(context);
 	Orientation newStartingOrientation;
-	
+
 	while (!file.atEnd())
 	{
 		const QString trimmedLine = file.readLine().trimmed();
 		const QStringList words = trimmedLine.simplified().split(" ");
 		if (words.size() == 0)
 			continue;
-		
+
 		const QString sectionName = words[0].toLower();
-		
+
 		fflush(stdout);
 		if (sectionName == "width")
 		{
@@ -101,37 +102,10 @@ bool Maze::load(const QString &filename)
 				return false;
 			newHeight = words[1].toInt();
 		}
-		else if (sectionName == "tiles")
-		{
-			for (int row = 0; row < newHeight; row++)
-			{
-				if (!file.canReadLine())
-					return false;
-				const QString line = file.readLine().trimmed();
-				if (line.size() < newWidth)
-					return false;
-				for (int col = 0; col < newWidth; col++)
-					newTiles[row*newWidth+col] = (line[col] == 'X');
-			}
-		}
 		else if (sectionName == "walls")
 		{
-			for (int row = 0; row < newHeight; row++)
-			{
-				if (!file.canReadLine())
-					return false;
-				const QString line = file.readLine().trimmed();
-				if (line.size() < newWidth)
-					return false;
-				for (int col = 0; col < newWidth; col++)
-				{
-					const QChar c = line[col];
-					if (c == '+' || c == '-')
-						newWalls[row*(newWidth+1)+col] |= EastWall;
-					if (c == '+' || c == '|')
-						newWalls[row*(newWidth+1)+col] |= SouthWall;
-				}
-			}
+			if (!newWalls.read(file))
+				return false;
 		}
 		else if (sectionName == "start")
 		{
@@ -148,7 +122,7 @@ bool Maze::load(const QString &filename)
 		else if (sectionName == "goal")
 		{
 			if (words.size() < 5)
-				return false;	
+				return false;
 			if (words[1].toLower() != "row" || words[3].toLower() != "col")
 				return false;
 			bool rowOk = false, colOk = false;
@@ -157,7 +131,7 @@ bool Maze::load(const QString &filename)
 				return false;
 			// if (goalTile.x() < 0 || goalTile.y() < 0 || goalTile.x() >= newWidth || goalTile.y() >= newHeight)
 			newGoalTiles.insert(goalTile);
-			
+
 		}
 		else if (sectionName == "picture")
 		{
@@ -174,107 +148,80 @@ bool Maze::load(const QString &filename)
 			const int filenameEnd = words[8].lastIndexOf('"');
 			newPictures.add(pictureOrientation, words[8].mid(filenameStart, filenameEnd - filenameStart));
 		}
-		
+
 		// use the new dimensions
-		if (newWidth > 0 && newHeight > 0 && newTiles.size() != newWidth*newHeight)
+		if (newWidth > 0 && newHeight > 0 && newSize != newWidth*newHeight)
 		{
-			newTiles.resize(0);
-			newWalls.resize(0);
-			newTiles.resize(newWidth * newHeight);
-			newWalls.resize((newWidth + 1) * (newHeight + 1));
+			newSize = newWidth*newHeight;
+			newWalls.clear();
+			newWalls.resize(newWidth, newHeight);
 		}
 	}
-	
+
 	if (newWidth < 1 || newHeight < 1)
 		return false;
-	
+
 	width = newWidth;
 	height = newHeight;
-	tiles = newTiles;
+	tiles.resize(width, height);
+	tiles.clear();
 	walls = newWalls;
 	goalTiles = newGoalTiles;
 	if (goalTiles.empty())
 		goalTiles.insert(QPoint(0, 0));
 	startingOrientation = newStartingOrientation;
 	pictures = newPictures;
-	
-	for (int row = 1; row <= newHeight; row++)
-	{
-		for (int col = 1; col <= newWidth; col++)
-		{
-			if (vertexAt(row-1, col) & SouthWall)
-				vertexAt(row, col) |= NorthWall;
-			if (vertexAt(row, col-1) & EastWall)
-				vertexAt(row, col) |= WestWall;
-		}
-	}
-	
+
 	_RefreshTiles();
-	
+
 	return true;
 }
 
 bool Maze::save(const QString &filename) const
 {
 	QFile file(filename);
-	if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+	if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QFile::Truncate))
 		return false;
-	
+
 	QTextStream out(&file);
 	out << "width " << width << "\n";
 	out << "height " << height << "\n";
-	
+
 	out << "walls\n";
 	for (int row = 0; row < height; row++)
 	{
 		for (int col = 0; col < width; col++)
 		{
-			if ((vertexAt(row, col) & SouthEastCorner) == SouthEastCorner)
+			if ((walls.at(row, col) & Walls::SouthEastCorner) == Walls::SouthEastCorner)
 				out << "+";
-			else if (vertexAt(row, col) & EastWall)
+			else if (walls.at(row, col) & Walls::EastWall)
 				out << "-";
-			else if (vertexAt(row, col) & SouthWall)
+			else if (walls.at(row, col) & Walls::SouthWall)
 				out << "|";
 			else
 				out << ".";
 		}
 		out << "\n";
 	}
-	
+
 	out << "start row " << startingOrientation.tile.y() << " col " << startingOrientation.tile.x() << " side " << startingOrientation.directionToString() << "\n";
-	
+
 	for (GoalSet::const_iterator it = goalTiles.begin(); it != goalTiles.end(); ++it)
 	{
 		out << "goal row " << it->y() << " col " << it->x() << "\n";
 	}
-	
+
 	out << pictures;
-	
+
 	return true;
 }
 
-// #include <QMessageBox>
 void Maze::setContext(QGLWidget *c)
 {
-	if (context)
-	{
-		context->deleteTexture(floorTexture);
-		floorTexture = 0;
-
-		context->deleteTexture(ceilingTexture);
-		ceilingTexture = 0;
-
-		context->deleteTexture(wallTexture);
-		wallTexture = 0;
-	}
 	context = c;
-	if (context)
-	{
-		floorTexture = context->bindTexture(QPixmap("data/images/floor.jpg"));
-		ceilingTexture = context->bindTexture(QPixmap("data/images/ceiling.jpg"));
-		wallTexture = context->bindTexture(QPixmap("data/images/wall.jpg"));
-	}
-	
+
+	tiles.setContext(c);
+	walls.setContext(c);
 	pictures.setContext(c);
 }
 
@@ -303,21 +250,6 @@ float Maze::getHeight() const
 	return static_cast<float>(height) * GRID_SIZE;
 }
 
-Orientation Maze::getStartingOrientation() const
-{
-	return startingOrientation;
-}
-
-bool Maze::containsTile(const QPoint &tile) const
-{
-	return tile.x() >= 0 && tile.y() >= 0 && tile.x() < width && tile.y() < height;
-}
-
-bool Maze::containsVertex(const QPoint &vertex) const
-{
-	return vertex.x() >= 0 && vertex.y() >= 0 && vertex.x() <= width && vertex.y() <= height;
-}
-
 bool Maze::mapPointInGoalRadius(const QPoint &point) const
 {
 	const QPoint tile = getNearestTile(point);
@@ -325,32 +257,30 @@ bool Maze::mapPointInGoalRadius(const QPoint &point) const
 		return false;
 	if (!goalTiles.contains(tile))
 		return false;
-	
+
 	const QLineF line(tile.x()*GRID_SIZE+GRID_SIZE/2.0, tile.y()*GRID_SIZE+GRID_SIZE/2.0, point.x(), point.y());
-	
-	return line.length() <= 50.0;
+
+	return line.length() <= GOAL_RADIUS;
 }
 
 QPoint Maze::getNearestVertex(const QPoint &point) const
 {
-	QPoint result = point/GRID_SIZE;
-	return result;
+	return point/GRID_SIZE;
 }
 
 QPoint Maze::getNearestTile(const QPoint &point) const
 {
-	QPoint result = (point - QPoint(GRID_SIZE/2, GRID_SIZE/2))/GRID_SIZE;
-	return result;
+	return (point - QPoint(GRID_SIZE/2, GRID_SIZE/2))/GRID_SIZE;
 }
-#include <QLineF>
+
 Orientation Maze::getNearestOrientation(const QPoint &point) const
 {
 	Orientation orientation;
 	orientation.tile = getNearestTile(point);
-	
+
 	QLineF line(orientation.tile.x() * GRID_SIZE + GRID_SIZE/2, orientation.tile.y() * GRID_SIZE + GRID_SIZE/2, point.x(), point.y());
 	qreal angle = (line.angle() - 45.0)/90.0;
-	
+
 	if (angle >= 0.0 && angle < 1.0)
 		orientation.direction = Orientation::North;
 	else if (angle >= 1.0 && angle < 2.0)
@@ -359,13 +289,8 @@ Orientation Maze::getNearestOrientation(const QPoint &point) const
 		orientation.direction = Orientation::South;
 	else
 		orientation.direction = Orientation::East;
-	
-	return orientation;
-}
 
-Pictures::Picture Maze::getPicture(const Orientation &orientation) const
-{
-	return pictures.at(orientation);
+	return orientation;
 }
 
 void Maze::addPicture(const Orientation &orientation, const QString &filename)
@@ -373,26 +298,13 @@ void Maze::addPicture(const Orientation &orientation, const QString &filename)
 	if (!containsTile(orientation.tile))
 		return;
 	removePicture(orientation);
-	
 	pictures.add(orientation, filename);
-	/*if (!pictureTextures.contains(filename))
-		pictureTextures.insert(filename, (context == NULL) ? 0 : context->bindTexture(QPixmap("data/landmarks/" + filename)));*/
-}
-
-void Maze::removePicture(const Orientation &orientation)
-{
-	pictures.remove(orientation);
 }
 
 void Maze::addGoal(const QPoint &p)
 {
 	if (containsTile(p))
 		goalTiles.insert(p);
-}
-
-void Maze::removeGoal(const QPoint &p)
-{
-	goalTiles.remove(p);
 }
 
 void Maze::setStartingOrientation(const Orientation &orientation)
@@ -404,96 +316,24 @@ void Maze::setStartingOrientation(const Orientation &orientation)
 	}
 }
 
-// #include <cstdio>
 bool Maze::connectVertices(const QPoint &a, const QPoint &b)
 {
-	const int distance = (b - a).manhattanLength();
-	if (distance == 0 || distance > 1)
+	if (!walls.addWallBetweenVertices(a, b))
 		return false;
-
-	const bool containsA = containsVertex(a);	
-	const bool containsB = containsVertex(b);	
-	int &aV = vertexAt(a);
-	int &bV = vertexAt(b);
-
-	// printf("CONNECTING: (%i, %i) -> (%i, %i)\n", a.x(), a.y(), b.x(), b.y());
-	
-	if (a.x() < b.x() && a.x() >= 0 && a.x() <= width && b.x() >= 0 && b.x() <= width)
-	{
-		if (containsA) aV |= EastWall;
-		if (containsB) bV |= WestWall;
-	}
-	else if (b.x() < a.x() && a.x() >= 0 && a.x() <= width && b.x() >= 0 && b.x() <= width)
-	{
-		if (containsB) bV |= EastWall;
-		if (containsA) aV |= WestWall;
-	}
-
-	if (a.y() < b.y() && a.y() <= height && b.y() >= 0 && b.y() <= height)
-	{
-		if (containsA) aV |= SouthWall;
-		if (containsB) bV |= NorthWall;
-	}
-	else if (b.y() < a.y() && a.y() <= height && b.y() >= 0 && b.y() <= height)
-	{
-		if (containsB) bV |= SouthWall;
-		if (containsA) aV |= NorthWall;
-	}
-
 	_RefreshTiles();
 	return true;
 }
 
 void Maze::disconnectVertices(const QPoint &a, const QPoint &b)
 {
-	const int distance = (b - a).manhattanLength();
-	if (distance == 0 || distance > 1)
-		return;
-
-	const bool containsA = containsVertex(a);
-	const bool containsB = containsVertex(b);
-	int &aV = vertexAt(a);
-	int &bV = vertexAt(b);
-
-	if (a.x() < b.x())
-	{
-		if (containsA) aV &= ~EastWall;
-		if (containsB) bV &= ~WestWall;
-	}
-	else if (b.x() < a.x())
-	{
-		if (containsB) bV &= ~EastWall;
-		if (containsA) aV &= ~WestWall;
-	}
-
-	if (a.y() < b.y())
-	{
-		if (containsA) aV &= ~SouthWall;
-		if (containsB) bV &= ~NorthWall;
-	}
-	else if (b.y() < a.y())
-	{
-		if (containsB) bV &= ~SouthWall;
-		if (containsA) aV &= ~NorthWall;
-	}
-	
+	walls.removeWallBetweenVertices(a, b);
 	_RefreshTiles();
 }
 
 void Maze::removeWall(const QPoint &a, const QPoint &b)
 {
-	const int distance = (b - a).manhattanLength();
-	if (distance == 0 || distance > 1)
-		return;
-
-	if (a.x() < b.x())
-		disconnectVertices(a + QPoint(1, 0), a + QPoint(1, 1));
-	else if (b.x() < a.x())
-		disconnectVertices(b + QPoint(1, 0), b + QPoint(1, 1));
-	else if (a.y() < b.y())
-		disconnectVertices(a + QPoint(0, 1), a + QPoint(1, 1));
-	else if (b.y() < a.y())
-		disconnectVertices(b + QPoint(0, 1), b + QPoint(1, 1));
+	walls.removeWallBetweenTiles(a, b);
+	_RefreshTiles();
 }
 
 void Maze::startDroppingImage(const QString &filename)
@@ -531,7 +371,6 @@ void Maze::endDroppingGoal(bool dropped)
 		addGoal(dropping.orientation.tile);
 }
 
-#include <cmath>
 QPointF Maze::addDisplacement(const QPointF &position, QPointF displacement) const
 {
 	const QPoint tile = getNearestTile(position.toPoint());
@@ -539,28 +378,28 @@ QPointF Maze::addDisplacement(const QPointF &position, QPointF displacement) con
 	bool northWestCorner = false, northEastCorner = false, southEastCorner = false, southWestCorner = false;
 	if (containsTile(tile))
 	{
-		northWall = vertexAt(tile)                & EastWall;
-		eastWall  = vertexAt(tile + QPoint(1, 0)) & SouthWall;
-		southWall = vertexAt(tile + QPoint(0, 1)) & EastWall;
-		westWall  = vertexAt(tile)                & SouthWall;
-		
-		northWestCorner = vertexAt(tile)                & NorthWestCorner;
-		northEastCorner = vertexAt(tile + QPoint(1, 0)) & NorthEastCorner;
-		southEastCorner = vertexAt(tile + QPoint(1, 1)) & SouthEastCorner;
-		southWestCorner = vertexAt(tile + QPoint(0, 1)) & SouthWestCorner;
+		northWall = walls.at(tile)                & Walls::EastWall;
+		eastWall  = walls.at(tile + QPoint(1, 0)) & Walls::SouthWall;
+		southWall = walls.at(tile + QPoint(0, 1)) & Walls::EastWall;
+		westWall  = walls.at(tile)                & Walls::SouthWall;
+
+		northWestCorner = walls.at(tile)                & Walls::NorthWestCorner;
+		northEastCorner = walls.at(tile + QPoint(1, 0)) & Walls::NorthEastCorner;
+		southEastCorner = walls.at(tile + QPoint(1, 1)) & Walls::SouthEastCorner;
+		southWestCorner = walls.at(tile + QPoint(0, 1)) & Walls::SouthWestCorner;
 	}
-	
+
 	static const float PLAYER_RADIUS = 100.0;
 	const float northWallDistance = fmod(position.y(), GRID_SIZE);
 	const float westWallDistance  = fmod(position.x(), GRID_SIZE);
 	const float eastWallDistance  = GRID_SIZE - westWallDistance;
 	const float southWallDistance = GRID_SIZE - northWallDistance;
-	
+
 	/*const float northWestDistance = sqrt(northWallDistance*northWallDistance + westWallDistance*westWallDistance);
 	const float northEastDistance = sqrt(northWallDistance*northWallDistance + eastWallDistance*eastWallDistance);
 	const float southEastDistance = sqrt(southWallDistance*southWallDistance + eastWallDistance*eastWallDistance);
 	const float southWestDistance = sqrt(southWallDistance*southWallDistance + westWallDistance*westWallDistance);*/
-	
+
 	if (northWall && displacement.y() < 0)
 	{
 		if (-displacement.y() + PLAYER_RADIUS >= northWallDistance)
@@ -581,7 +420,7 @@ QPointF Maze::addDisplacement(const QPointF &position, QPointF displacement) con
 		if (displacement.x() + PLAYER_RADIUS >= eastWallDistance)
 			displacement.setX(eastWallDistance - PLAYER_RADIUS);
 	}
-	
+
 	const QPointF hitboxCenter = QPointF(westWallDistance, northWallDistance);
 	const QPointF cornerPoints[] =
 	{
@@ -597,7 +436,7 @@ QPointF Maze::addDisplacement(const QPointF &position, QPointF displacement) con
 		southEastCorner,
 		southWestCorner
 	};
-	const int displacementLength = QLineF(position, position + displacement).length();
+	// const int displacementLength = QLineF(position, position + displacement).length();
 	for (unsigned int i = 0; i < ARRAYSIZE(cornerPoints); i++)
 	{
 		if (cornerExists[i])
@@ -620,72 +459,48 @@ QPointF Maze::addDisplacement(const QPointF &position, QPointF displacement) con
 			}
 		}
 	}
-	
+
 	const QPointF result = position + displacement;
 	return result;
 }
 
-void Maze::drawGrid()
+void Maze::drawGrid() const
 {
-	// glColor3f(0.85, 0.85, 0.85);
-	// glColor3f(0.0, 0.0, 0.0);
-	glColor3f(0.5, 0.5, 0.5);
-	// if (usingLines)
-	{
-		glLineWidth(1.0);
-		glBegin(GL_LINES);
-		for (int row = 0; row <= height; row++)
-		{
-			glVertex3f(0, row*GRID_SIZE, -0.02);
-			glVertex3f(width*GRID_SIZE, row*GRID_SIZE, -0.02);
-		}
-		for (int col = 0; col <= width; col++)
-		{
-			glVertex3f(col*GRID_SIZE, 0, -0.02);
-			glVertex3f(col*GRID_SIZE, height*GRID_SIZE, -0.02);
-		}
-		glEnd();
-	}
-	// else
-	{
-		glBegin(GL_QUADS);
-		for (int row = 0; row <= height; row++)
-		{
-			glVertex3f(                - LINE_WIDTH/2, row*GRID_SIZE - LINE_WIDTH/2, -0.01); // north west corner of west-east "line"
-			glVertex3f(                - LINE_WIDTH/2, row*GRID_SIZE + LINE_WIDTH/2, -0.01); // south west corner of west-east "line"
-			glVertex3f(width*GRID_SIZE + LINE_WIDTH/2, row*GRID_SIZE + LINE_WIDTH/2, -0.01); // south east corner of west-east "line"
-			glVertex3f(width*GRID_SIZE + LINE_WIDTH/2, row*GRID_SIZE - LINE_WIDTH/2, -0.01); // north east corner of west-east "line"
-		}
-		for (int col = 0; col <= width; col++)
-		{
-			glVertex3f(col*GRID_SIZE - LINE_WIDTH/2,                  - LINE_WIDTH/2, -0.01); // north west corner of west-east "line"
-			glVertex3f(col*GRID_SIZE - LINE_WIDTH/2, height*GRID_SIZE + LINE_WIDTH/2, -0.01); // south west corner of west-east "line"
-			glVertex3f(col*GRID_SIZE + LINE_WIDTH/2, height*GRID_SIZE + LINE_WIDTH/2, -0.01); // south east corner of west-east "line"
-			glVertex3f(col*GRID_SIZE + LINE_WIDTH/2,                  - LINE_WIDTH/2, -0.01); // north east corner of west-east "line"
-		}
-		glEnd();
-	}
-	
-	glColor3f(1.0, 1.0, 1.0);
+	tiles.drawGrid();
 }
 
-void Maze::draw()
+void Maze::draw() const
 {
-	_DrawFloor();
-	_DrawCeiling();
-	_DrawWalls();
-	_DrawEditorWallTops();
+	tiles.drawFloor();
+	tiles.drawCeiling();
+	walls.draw();
+	walls.drawTops();
+	pictures.draw();
 
-	// draw the tops of the pictures for the editor's benefit
+	/*glEnable(GL_LIGHTING);
+	static GLfloat LightAmbient[] = { 0.5f, 0.5f, 0.5f, 1.0f };
+	static GLfloat LightDiffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	static GLfloat LightPosition[] = { 0.0f, 0.0f, -100.0f, 1.0f };
+	// static GLfloat LightPosition[] = {1.0, 0.5, 1.0, 0.0};
+	glLightfv(GL_LIGHT1, GL_AMBIENT, LightAmbient);
+	glLightfv(GL_LIGHT1, GL_DIFFUSE, LightDiffuse);
+	glLightfv(GL_LIGHT1, GL_POSITION, LightPosition);
+	glEnable(GL_LIGHT1);*/
+
+	// draw 'temporary' elements that we are currently dragging around
 	if (dropping.dragging == Dropping::DRAGGING_IMAGE && containsTile(dropping.orientation.tile))
 		dropping.orientation.draw();
-	else if (dropping.dragging == Dropping::DRAGGING_GOAL && containsTile(dropping.orientation.tile))
+	if (dropping.dragging == Dropping::DRAGGING_GOAL && containsTile(dropping.orientation.tile))
 		_DrawGoal(dropping.orientation.tile);
-	
-	// draw pictures
-	pictures.draw();
-	
-	// draw the starting location
+
+	_DrawStartingOrientation();
+	_DrawGoals();
+
+	/*glDisable(GL_LIGHTING);*/
+}
+
+void Maze::_DrawStartingOrientation() const
+{
 	glColor3f(0.0, 1.0, 0.0);
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
@@ -694,15 +509,15 @@ void Maze::draw()
 	{
 		case Orientation::North:
 		break;
-		
+
 		case Orientation::South:
 		glRotatef(180.0, 0.0, 0.0, 1.0);
 		break;
-		
+
 		case Orientation::East:
 		glRotatef(90.0, 0.0, 0.0, 1.0);
 		break;
-		
+
 		case Orientation::West:
 		glRotatef(270.0, 0.0, 0.0, 1.0);
 		break;
@@ -716,15 +531,16 @@ void Maze::draw()
 	}
 	glEnd();
 	glPopMatrix();
-	
-	// draw the goals
-	for (QSet<QPoint>::const_iterator it = goalTiles.begin(); it != goalTiles.end(); ++it)
-		_DrawGoal(*it);
-	
-	// glBindTexture(GL_TEXTURE_2D, 0);
+	glColor3f(1.0, 1.0, 1.0);
 }
 
-void Maze::_DrawGoal(const QPoint &goal)
+void Maze::_DrawGoals() const
+{
+	for (GoalSet::const_iterator it = goalTiles.begin(); it != goalTiles.end(); ++it)
+		_DrawGoal(*it);
+}
+
+void Maze::_DrawGoal(const QPoint &goal) const
 {
 	glColor3f(1.0, 0.0, 1.0);
 	{
@@ -734,7 +550,7 @@ void Maze::_DrawGoal(const QPoint &goal)
 			glTranslatef(goal.x()*GRID_SIZE + GRID_SIZE/2.0, goal.y()*GRID_SIZE + GRID_SIZE/2.0, -0.4);
 			glRotatef(180.0, 1.0, 0.0, 0.0);
 			// gluDisk(quadric, 30.0, 15.0, 32, 2);
-			gluCylinder(quadric, 30.0, 0.0, GRID_SIZE, 32, 1);
+			gluCylinder(quadric, GOAL_RADIUS, 0.0, GRID_SIZE, 32, 1);
 			glPopMatrix();
 		}
 		gluDeleteQuadric(quadric);
@@ -742,276 +558,8 @@ void Maze::_DrawGoal(const QPoint &goal)
 	glColor3f(1.0, 1.0, 1.0);
 }
 
-#include <cstdio>
-
-#include <QStack>
 void Maze::_RefreshTiles()
 {
-	tiles.fill(0);
-	
-	QStack<QPoint> toFill;
-	toFill.push(QPoint(startingOrientation.tile.x(), startingOrientation.tile.y()));
-	while (!toFill.empty())
-	{
-		const QPoint p = toFill.pop();
-		if (!containsTile(p))
-			continue;
-		if (tileAt(p))
-			continue;
-		
-		tileAt(p) = true;
-		
-		if (!(vertexAt(p) & EastWall))
-			toFill.push(p + QPoint(0, -1));
-		if (!(vertexAt(p + QPoint(0, 1)) & EastWall))
-			toFill.push(p + QPoint(0, 1));
-		if (!(vertexAt(p) & SouthWall))
-			toFill.push(p + QPoint(-1, 0));
-		if (!(vertexAt(p + QPoint(1, 0)) & SouthWall))
-			toFill.push(p + QPoint(1, 0));
-	}
-}
-
-void Maze::_DrawWalls()
-{
-	glBindTexture(GL_TEXTURE_2D, wallTexture);
-	glBegin(GL_QUADS);
-	{
-		int i = 0;
-		for (int row = 0; row <= height; row++)
-		{
-			for (int col = 0; col <= width; col++, i++)
-			{
-				// the end caps
-				switch (walls[i])
-				{
-					case NorthWall:
-					glNormal3iv(northWallNormal);
-					glTexCoord2i(0, 0); // upper north-west corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower north-west corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, 0);
-					glTexCoord2i(1, 1); // lower north-east corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, 0);
-					glTexCoord2i(1, 0); // upper north-east corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
-					break;
-					
-					case SouthWall:
-					glNormal3iv(southWallNormal);
-					glTexCoord2i(1, 0); // upper south-west corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
-					glTexCoord2i(0, 0); // upper south-east corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower south-east corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, 0);
-					glTexCoord2i(1, 1); // lower south-west corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, 0);
-					break;
-					
-					case WestWall:
-					glNormal3iv(westWallNormal);
-					glTexCoord2i(1, 0); // upper north-west corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
-					glTexCoord2i(0, 0); // upper south-west corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower south-west corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
-					glTexCoord2i(1, 1); // lower north-west corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
-					break;
-					
-					case EastWall:
-					glNormal3iv(eastWallNormal);
-					glTexCoord2i(0, 0); // upper north-east corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower north-east corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
-					glTexCoord2i(1, 1); // lower south-east corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
-					glTexCoord2i(1, 0); // upper south-east corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
-					break;
-				}
-				if (walls[i] & EastWall)
-				{
-					float leftOffsetTop = (walls[i] & NorthWall) ? HALF_WALL_WIDTH : 0.0;
-					if (walls[i] == SouthEastCorner)
-						leftOffsetTop = -HALF_WALL_WIDTH;
-					float rightOffsetTop = (walls[i+1] & NorthWall) ? HALF_WALL_WIDTH : 0.0;
-					if (walls[i+1] == SouthWestCorner)
-						rightOffsetTop = -HALF_WALL_WIDTH;
-					
-					float leftOffsetBottom = (walls[i] & SouthWall) ? HALF_WALL_WIDTH : 0.0;
-					if (walls[i] == NorthEastCorner)
-						leftOffsetBottom = -HALF_WALL_WIDTH;
-					float rightOffsetBottom = (walls[i+1] & SouthWall) ? HALF_WALL_WIDTH : 0.0;
-					if (walls[i+1] == NorthWestCorner)
-						rightOffsetBottom = -HALF_WALL_WIDTH;
-					
-					glNormal3iv(northWallNormal);
-					glTexCoord2i(0, 0); // upper north-west corner
-					glVertex3i(col*GRID_SIZE+leftOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower north-west corner
-					glVertex3i(col*GRID_SIZE+leftOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
-					glTexCoord2i(1, 1); // lower north-east corner
-					glVertex3i((col+1)*GRID_SIZE-rightOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
-					glTexCoord2i(1, 0); // upper north-east corner
-					glVertex3i((col+1)*GRID_SIZE-rightOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
-					
-					glNormal3iv(southWallNormal);
-					glTexCoord2i(1, 0); // upper south-west corner
-					glVertex3i(col*GRID_SIZE+leftOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
-					glTexCoord2i(0, 0); // upper south-east corner
-					glVertex3i((col+1)*GRID_SIZE-rightOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower south-east corner
-					glVertex3i((col+1)*GRID_SIZE-rightOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
-					glTexCoord2i(1, 1); // lower south-west corner
-					glVertex3i(col*GRID_SIZE+leftOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
-				}
-				if (walls[i] & SouthWall)
-				{
-					float topOffsetLeft = (walls[i] & WestWall) ? HALF_WALL_WIDTH : 0.0;
-					if (walls[i] == SouthEastCorner)
-						topOffsetLeft = -HALF_WALL_WIDTH;
-					float bottomOffsetLeft = (walls[i+(width+1)] & WestWall) ? HALF_WALL_WIDTH : 0.0;
-					if (walls[i+(width+1)] == NorthEastCorner)
-						bottomOffsetLeft = -HALF_WALL_WIDTH;
-					
-					float topOffsetRight = (walls[i] & EastWall) ? HALF_WALL_WIDTH : 0.0;
-					if (walls[i] == SouthWestCorner)
-						topOffsetRight = -HALF_WALL_WIDTH;
-					float bottomOffsetRight = (walls[i+(width+1)] & EastWall) ? HALF_WALL_WIDTH : 0.0;
-					if (walls[i+(width+1)] == NorthWestCorner)
-						bottomOffsetRight = -HALF_WALL_WIDTH;
-					
-					glNormal3iv(westWallNormal);
-					glTexCoord2i(1, 0); // upper north-west corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetRight, -GRID_SIZE);
-					glTexCoord2i(0, 0); // upper south-west corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetRight, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower south-west corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetRight, 0);
-					glTexCoord2i(1, 1); // lower north-west corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetRight, 0);
-					
-					glNormal3iv(eastWallNormal);
-					glTexCoord2i(0, 0); // upper north-east corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetLeft, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower north-east corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetLeft, 0);
-					glTexCoord2i(1, 1); // lower south-east corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetLeft, 0);
-					glTexCoord2i(1, 0); // upper south-east corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetLeft, -GRID_SIZE);
-				}
-			}
-		}
-	}
-	glEnd();
-}
-
-void Maze::_DrawCeiling()
-{
-	glBindTexture(GL_TEXTURE_2D, ceilingTexture);
-	glBegin(GL_QUADS);
-	glNormal3iv(ceilingNormal);
-	{
-		int i = 0;
-		for (int row = 0; row < height; row++)
-		{
-			for (int col = 0; col < width; col++, i++)
-			{
-				if (tiles[i])
-				{
-					glTexCoord2i(0, 0); // north-east corner
-					glVertex3i((col+1)*GRID_SIZE, row*GRID_SIZE, -GRID_SIZE);
-
-					glTexCoord2i(0, 1); // south-east corner
-					glVertex3i((col+1)*GRID_SIZE, (row+1)*GRID_SIZE, -GRID_SIZE);
-
-					glTexCoord2i(1, 1); // south-west corner
-					glVertex3i(col*GRID_SIZE, (row+1)*GRID_SIZE, -GRID_SIZE);
-
-					glTexCoord2i(1, 0); // north-west corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE, -GRID_SIZE);
-				}
-			}
-		}
-	}
-	glEnd();
-}
-
-void Maze::_DrawFloor()
-{
-	glBindTexture(GL_TEXTURE_2D, floorTexture);
-	glBegin(GL_QUADS);
-	glNormal3iv(floorNormal);
-	{
-		int i = 0;
-		for (int row = 0; row < height; row++)
-		{
-			for (int col = 0; col < width; col++, i++)
-			{
-				if (tiles[i])
-				{
-					glTexCoord2i(0, 0); // lower north-west corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE, 0);
-
-					glTexCoord2i(0, 1); // lower south-west corner
-					glVertex3i(col*GRID_SIZE, (row+1)*GRID_SIZE, 0);
-
-					glTexCoord2i(1, 1); // lower south-east corner
-					glVertex3i((col+1)*GRID_SIZE, (row+1)*GRID_SIZE, 0);
-
-					glTexCoord2i(1, 0); // lower north-east corner
-					glVertex3i((col+1)*GRID_SIZE, row*GRID_SIZE, 0);
-				}
-			}
-		}
-	}
-	glEnd();
-}
-
-void Maze::_DrawEditorWallTops()
-{
-	glColor3f(0.0, 0.0, 0.0);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glBegin(GL_QUADS);
-	{
-		int i = 0;
-		for (int row = 0; row <= height; row++)
-		{
-			for (int col = 0; col <= width; col++, i++)
-			{
-				const float centerX = static_cast<float>(col*GRID_SIZE);
-				const float centerY = static_cast<float>(row*GRID_SIZE);
-
-				// TODO bevelling
-				if (walls[i]/* == SouthEastCorner*/)
-				{
-					glVertex3i(centerX-HALF_WALL_WIDTH, centerY-HALF_WALL_WIDTH, -GRID_SIZE);
-					glVertex3i(centerX-HALF_WALL_WIDTH, centerY+HALF_WALL_WIDTH, -GRID_SIZE);
-					glVertex3i(centerX+HALF_WALL_WIDTH, centerY+HALF_WALL_WIDTH, -GRID_SIZE);
-					glVertex3i(centerX+HALF_WALL_WIDTH, centerY-HALF_WALL_WIDTH, -GRID_SIZE);
-				}
-				if (walls[i] & EastWall)
-				{
-					glVertex3i(centerX+HALF_WALL_WIDTH, centerY-HALF_WALL_WIDTH, -GRID_SIZE);
-					glVertex3i(centerX+HALF_WALL_WIDTH, centerY+HALF_WALL_WIDTH, -GRID_SIZE);
-					glVertex3i(centerX+GRID_SIZE-HALF_WALL_WIDTH, centerY+HALF_WALL_WIDTH, -GRID_SIZE);
-					glVertex3i(centerX+GRID_SIZE-HALF_WALL_WIDTH, centerY-HALF_WALL_WIDTH, -GRID_SIZE);
-				}
-				if (walls[i] & SouthWall)
-				{
-					glVertex3i(centerX-HALF_WALL_WIDTH, centerY+HALF_WALL_WIDTH, -GRID_SIZE);
-					glVertex3i(centerX-HALF_WALL_WIDTH, centerY+GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
-					glVertex3i(centerX+HALF_WALL_WIDTH, centerY+GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
-					glVertex3i(centerX+HALF_WALL_WIDTH, centerY+HALF_WALL_WIDTH, -GRID_SIZE);
-				}
-			}
-		}
-	}
-	glEnd();
-	glColor3f(1.0, 1.0, 1.0);
+	tiles.clear();
+	tiles.floodFill(startingOrientation.tile, walls);
 }

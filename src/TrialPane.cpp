@@ -4,7 +4,7 @@
 
 #include <QStandardItemModel>
 
-TrialPane::TrialPane(QWidget *parent) : QDockWidget(parent)
+TrialPane::TrialPane(QWidget *parent) : QDockWidget("Maze Queue", parent)
 {
 	TrialTreeView * const treeView = new TrialTreeView(this);
 	setWidget(treeView);
