@@ -286,7 +286,7 @@ void MazeWidget3D::slot_Advance()
 	{
 		static const float WALKING_SPEED = 10.0;
 		static const float TURNING_SPEED = 1.0;
-		const QPointF movedPoint = maze.addDisplacement(camera.position.toPointF(), direction.normalized().toPointF() * (WALKING_SPEED) + direction2.normalized().toPointF() * joy_forward_dir);
+		const QPointF movedPoint = maze.addDisplacement(camera.position.toPointF(), direction.normalized().toPointF() * (WALKING_SPEED) + direction2.toPointF());
 		camera.position = QVector3D(movedPoint.x(), movedPoint.y(), camera.position.z());
 		const QLineF viewLine(0.0, 0.0, camera.view.x(), camera.view.y());
 		logger.log(camera.position.x(), camera.position.y(), viewLine.angle());
