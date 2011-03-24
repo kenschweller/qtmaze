@@ -10,6 +10,7 @@
 #include <QVector>
 #include <QRect>
 #include <QSize>
+#include <QSound>
 
 #include <SDL.h>
 
@@ -128,6 +129,7 @@ protected:
 	int overviewHorizontalOffset;
 	GLUquadric *quadric;
 	unsigned int displayListMaze;
+	QSound goalSound;
 };
 
 #endif
