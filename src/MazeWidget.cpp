@@ -256,12 +256,13 @@ void MazeWidget3D::slot_Advance()
 	float dx = 0.0;
 	if (holdingKeys[HOLDING_TURNLEFT]) dx -= 1.0;
 	if (holdingKeys[HOLDING_TURNRIGHT]) dx += 1.0;
+	float joy_forward_dir = 0.0;
 	if (joystick)
 	{
 		const float JOYSTICK_DEAD_ZONE = 0.1;
-		const float JOYSTICK_TURNING_FACTOR = 8.0;
-		const float JOYSTICK_WALKING_FACTOR = 16.0;
-		const float JOYSTICK_AXIS_DIVISOR = 65536.0;
+		const float JOYSTICK_TURNING_FACTOR = 1.0;
+		const float JOYSTICK_WALKING_FACTOR = 10.0;
+		const float JOYSTICK_AXIS_DIVISOR = 65536.0/2.0;
 		SDL_JoystickUpdate();
 		float x_axis = static_cast<float>(SDL_JoystickGetAxis(joystick, 0))/JOYSTICK_AXIS_DIVISOR;
 		float y_axis = -static_cast<float>(SDL_JoystickGetAxis(joystick, 1))/JOYSTICK_AXIS_DIVISOR;
@@ -270,7 +271,7 @@ void MazeWidget3D::slot_Advance()
 		if (fabs(y_axis) <= JOYSTICK_DEAD_ZONE)
 			y_axis = 0.0;
 		dx += static_cast<float>(x_axis)*JOYSTICK_TURNING_FACTOR;
-		forward_dir += static_cast<float>(y_axis)*JOYSTICK_WALKING_FACTOR;
+		joy_forward_dir = static_cast<float>(y_axis)*JOYSTICK_WALKING_FACTOR;
 	}
 
 	QVector3D direction = ((camera.getForward() * forward_dir) + (camera.getRight() * right_dir));
@@ -283,7 +284,7 @@ void MazeWidget3D::slot_Advance()
 	{
 		static const float WALKING_SPEED = 10.0;
 		static const float TURNING_SPEED = 1.0;
-		const QPointF movedPoint = maze.addDisplacement(camera.position.toPointF(), direction.normalized().toPointF() * WALKING_SPEED);
+		const QPointF movedPoint = maze.addDisplacement(camera.position.toPointF(), direction.normalized().toPointF() * (WALKING_SPEED + joy_forward_dir));
 		camera.position = QVector3D(movedPoint.x(), movedPoint.y(), camera.position.z());
 		const QLineF viewLine(0.0, 0.0, camera.view.x(), camera.view.y());
 		logger.log(camera.position.x(), camera.position.y(), viewLine.angle());
