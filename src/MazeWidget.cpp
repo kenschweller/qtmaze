@@ -280,7 +280,7 @@ void MazeWidget3D::slot_Advance()
 	// if (forward_dir < 0.0)
 		// dx = -dx;
 
-	if (!direction.isNull() || dx != 0.0)
+	if (!direction.isNull() || dx != 0.0 || joy_forward_dir != 0.0)
 	{
 		static const float WALKING_SPEED = 10.0;
 		static const float TURNING_SPEED = 1.0;
