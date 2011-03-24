@@ -10,7 +10,9 @@
 #include <QThread>
 #include <QSound>
 #include <QDir>
-// #include <QCursor>
+#include <QLineF>
+
+#include <cmath>
 
 #ifndef ARRAYSIZE
 #define ARRAYSIZE(x) sizeof(x)/sizeof(x[0])
@@ -61,7 +63,15 @@ QPoint MazeWidget3D::_Unproject(const QPoint &point)
 	return rayEnd.toPoint();
 }
 
-MazeWidget3D::MazeWidget3D(QWidget *parent) : QGLWidget(parent), mode(MODE_EDITING), occupation(OCCUPATION_NONE), scaleFactor(1.0), editingScaleFactor(3.0), joystick(NULL), verticalOffset(0), horizontalOffset(0), displayListMaze(0), goalSound("data/sounds/goal.wav")
+MazeWidget3D::MazeWidget3D(QWidget *parent)
+	: QGLWidget(parent),
+	mode(MODE_EDITING), occupation(OCCUPATION_NONE),
+	scaleFactor(1.0), editingScaleFactor(3.0),
+	joystick(NULL),
+	verticalOffset(0), horizontalOffset(0),
+	displayListMaze(0),
+	goalSound("data/sounds/goal.wav"),
+	playing(false), won(false)
 {
 	_participating = false;
 	camera = maze.getStartingCamera();
@@ -128,7 +138,7 @@ void MazeWidget3D::reset(int width, int height, const QString description)
 	_filename = "";
 	maze.reset(width, height);
 	// maze.setDescription(description); // TODO
-	restart();
+	restart(false);
 }
 
 void MazeWidget3D::_RestartLogging()
@@ -149,13 +159,13 @@ void MazeWidget3D::_RestartLogging()
 	}
 }
 
-bool MazeWidget3D::open(const QString &filename)
+bool MazeWidget3D::open(const QString &filename, bool pplaying)
 {
 	const bool result = maze.load(filename);
 	if (result)
 	{
 		_filename = filename;
-		restart();
+		restart(pplaying);
 	}
 	return result;
 }
@@ -209,8 +219,10 @@ void MazeWidget3D::slot_SwitchToMouselookMode()
 	}
 }
 
-void MazeWidget3D::restart()
+void MazeWidget3D::restart(bool pplaying)
 {
+	playing = pplaying;
+	won = false;
 	_RestartLogging();
 	horizontalOffset = maze.getWidth()/2.0;
 	verticalOffset = maze.getHeight()/2.0;
@@ -229,14 +241,10 @@ public:
 	static void Sleep(int seconds) {sleep(seconds);}
 };
 
-// #include <cstdio>
 void MazeWidget3D::slot_Advance()
 {
-	if (mode != MODE_MOUSELOOK && mode != MODE_OVERVIEW)
+	if (won || (mode != MODE_MOUSELOOK && mode != MODE_OVERVIEW))
 		return;
-
-	// static int qqq = 0;
-	// printf("%04i: slot_Advance()\n", qqq);
 
 	float forward_dir = 0.0;
 	float   right_dir = 0.0;
@@ -250,16 +258,19 @@ void MazeWidget3D::slot_Advance()
 	if (holdingKeys[HOLDING_TURNRIGHT]) dx += 1.0;
 	if (joystick)
 	{
-		const Sint16 DEAD_ZONE = 2;
+		const float JOYSTICK_DEAD_ZONE = 0.1;
+		const float JOYSTICK_TURNING_FACTOR = 8.0;
+		const float JOYSTICK_WALKING_FACTOR = 16.0;
+		const float JOYSTICK_AXIS_DIVISOR = 65536.0;
 		SDL_JoystickUpdate();
-		Sint16 x_axis = SDL_JoystickGetAxis(joystick, 0)>>11;
-		Sint16 y_axis = -SDL_JoystickGetAxis(joystick, 1)>>11;
-		if (abs(x_axis) < DEAD_ZONE)
-			x_axis = 0;
-		if (abs(y_axis) < DEAD_ZONE)
-			y_axis = 0;
-		dx += static_cast<float>(x_axis)/8.0;
-		forward_dir += static_cast<float>(y_axis)/16.0;
+		float x_axis = static_cast<float>(SDL_JoystickGetAxis(joystick, 0))/JOYSTICK_AXIS_DIVISOR;
+		float y_axis = -static_cast<float>(SDL_JoystickGetAxis(joystick, 1))/JOYSTICK_AXIS_DIVISOR;
+		if (fabs(x_axis) <= JOYSTICK_DEAD_ZONE)
+			x_axis = 0.0;
+		if (fabs(y_axis) <= JOYSTICK_DEAD_ZONE)
+			y_axis = 0.0;
+		dx += static_cast<float>(x_axis)*JOYSTICK_TURNING_FACTOR;
+		forward_dir += static_cast<float>(y_axis)*JOYSTICK_WALKING_FACTOR;
 	}
 
 	QVector3D direction = ((camera.getForward() * forward_dir) + (camera.getRight() * right_dir));
@@ -270,10 +281,8 @@ void MazeWidget3D::slot_Advance()
 
 	if (!direction.isNull() || dx != 0.0)
 	{
-		// printf("%04i: slot_Advance(): doing something!\n\n");
 		static const float WALKING_SPEED = 10.0;
 		static const float TURNING_SPEED = 1.0;
-		// ((mode == MODE_OVERVIEW) ? tumble : camera).position += direction * WALKING_SPEED;
 		const QPointF movedPoint = maze.addDisplacement(camera.position.toPointF(), direction.normalized().toPointF() * WALKING_SPEED);
 		camera.position = QVector3D(movedPoint.x(), movedPoint.y(), camera.position.z());
 		const QLineF viewLine(0.0, 0.0, camera.view.x(), camera.view.y());
@@ -284,21 +293,21 @@ void MazeWidget3D::slot_Advance()
 		_SetupModelMatrix();
 		updateGL();
 
-		if (maze.mapPointInGoalRadius(camera.position.toPoint()))
+		if (playing && maze.mapPointInGoalRadius(camera.position.toPoint()))
 		{
-			// printf("WHOAAA\n");
-			
 			goalSound.play();
-			SleeperThread::Sleep(1);
-			camera.position.setX(100.0);
-			camera.position.setY(300.0);
-			_SetupModelMatrix();
+			playing = false;
+			won = true;
+			logger.end();
 			updateGL();
-			emit(completedMaze(_filename));
+			QTimer::singleShot(1000, this, SLOT(slot_SoundFinished()));
 		}
 	}
+}
 
-	// qqq++;
+void MazeWidget3D::slot_SoundFinished()
+{
+	emit(completedMaze(_filename));
 }
 
 void MazeWidget3D::dragEnterEvent(QDragEnterEvent *event)
@@ -720,7 +729,7 @@ void MazeWidget3D::resizeGL(int w, int h)
 	_SetupModelMatrix();
 	_SetupProjectionMatrix();
 }
-#include <QLineF>
+
 void MazeWidget3D::paintGL()
 {
 	/*static GLfloat LightAmbient[] = { 0.5f, 0.5f, 0.5f, 1.0f };
@@ -733,6 +742,8 @@ void MazeWidget3D::paintGL()
 	glEnable(GL_LIGHT1);*/
 	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	if (won && mode == MODE_MOUSELOOK)
+		return;
 	// if (!(maze == oldMaze))
 	{
 		// oldMaze = maze;

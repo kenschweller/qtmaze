@@ -224,7 +224,7 @@ void QtMaze::slot_Run()
 {
 	mazeWidget3d->setParticipantName(_participantName->text());
 	mazeWidget3d->setParticipating(true);
-	mazeWidget3d->restart();
+	mazeWidget3d->restart(true);
 	slot_SwitchToMouselookMode();
 }
 
@@ -232,11 +232,16 @@ void QtMaze::slot_Test()
 {
 	mazeWidget3d->setParticipantName(_participantName->text());
 	mazeWidget3d->setParticipating(false);
-	mazeWidget3d->restart();
+	mazeWidget3d->restart(true);
 	slot_SwitchToMouselookMode();
 }
 
 void QtMaze::slot_MazeCompleted(const QString &filename)
 {
-	mazeWidget3d->open(filename);
+	if (filename.size() == 0)
+	{
+		mazeWidget3d->restart(false);
+		return;
+	}
+	mazeWidget3d->open(filename, true);
 }
