@@ -276,16 +276,17 @@ void MazeWidget3D::slot_Advance()
 	}
 
 	QVector3D direction = ((camera.getForward() * forward_dir) + (camera.getRight() * right_dir));
+	QVector3D direction2 = (camera.getForward() * joy_forward_dir);
 
 	// simulate a car backing up behavior
 	// if (forward_dir < 0.0)
 		// dx = -dx;
 
-	if (!direction.isNull() || dx != 0.0 || joy_forward_dir != 0.0)
+	if (!direction.isNull() || !direction2.isNull() || dx != 0.0)
 	{
 		static const float WALKING_SPEED = 10.0;
 		static const float TURNING_SPEED = 1.0;
-		const QPointF movedPoint = maze.addDisplacement(camera.position.toPointF(), direction.normalized().toPointF() * (WALKING_SPEED + joy_forward_dir));
+		const QPointF movedPoint = maze.addDisplacement(camera.position.toPointF(), direction.normalized().toPointF() * (WALKING_SPEED) + direction2.normalized().toPointF() * joy_forward_dir);
 		camera.position = QVector3D(movedPoint.x(), movedPoint.y(), camera.position.z());
 		const QLineF viewLine(0.0, 0.0, camera.view.x(), camera.view.y());
 		logger.log(camera.position.x(), camera.position.y(), viewLine.angle());
