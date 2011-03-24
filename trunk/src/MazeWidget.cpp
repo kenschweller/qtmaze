@@ -272,6 +272,7 @@ void MazeWidget3D::slot_Advance()
 			y_axis = 0.0;
 		dx += static_cast<float>(x_axis)*JOYSTICK_TURNING_FACTOR;
 		joy_forward_dir = static_cast<float>(y_axis)*JOYSTICK_WALKING_FACTOR;
+		forward_dir = static_cast<float>(y_axis)*JOYSTICK_WALKING_FACTOR;
 	}
 
 	QVector3D direction = ((camera.getForward() * forward_dir) + (camera.getRight() * right_dir));
