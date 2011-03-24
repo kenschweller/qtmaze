@@ -53,6 +53,7 @@ protected:
 	void dragLeaveEvent(QDragLeaveEvent *event);
 	void dragMoveEvent(QDragMoveEvent *event);
 	void dropEvent(QDropEvent *event);
+	void focusOutEvent(QFocusEvent *event);
 	void contextMenuEvent(QContextMenuEvent *event);
 	
 	void mousePressEvent(QMouseEvent *event);

@@ -1,4 +1,5 @@
 #include "PositionLogger.h"
+#include "defines.h"
 
 #include <QMessageBox>
 #include <QGLWidget>
@@ -33,8 +34,6 @@ void PositionLogger::start(const QString &filename)
 	outStream << "ms\tX\tY\tAngle\n";
 	timer.start();
 }
-
-static const float GRID_SIZE = 250; // TODO consolidate this
 
 void PositionLogger::log(float x, float y, float angle)
 {

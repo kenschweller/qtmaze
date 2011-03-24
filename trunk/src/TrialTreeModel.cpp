@@ -7,40 +7,55 @@
 
 TrialTreeModel::TrialTreeModel(QObject *parent) : QStandardItemModel(parent)
 {
-	appendRow(new QStandardItem("Test"));
+	// appendRow(new QStandardItem("Test 1"));
+	// appendRow(new QStandardItem("Test 2"));
+	// appendRow(new QStandardItem("Test 3"));
+	
+	setColumnCount(1);
+	setHeaderData(0, Qt::Horizontal, "Maze File");
+	setSupportedDragActions(Qt::MoveAction);
 }
 
 TrialTreeModel::~TrialTreeModel()
 {
 }
 
-Qt::DropActions TrialTreeModel::supportedDragActions() const
-{
-	return Qt::CopyAction | Qt::MoveAction;
-}
-
 QStringList TrialTreeModel::mimeTypes() const
 {
 	QStringList result = QStandardItemModel::mimeTypes();
 	result.append("text/uri-list");
-	// return QStringList("text/uri-list");
 	return result;
 }
 
 bool TrialTreeModel::dropMimeData(const QMimeData *mimeData, Qt::DropAction action, int row, int column, const QModelIndex &parent)
 {
+	if (QStandardItemModel::dropMimeData(mimeData, action, row, column, parent))
+		return true;
+	
 	if (mimeData->hasUrls())
 	{
 		const QList<QUrl> urls = mimeData->urls();
 		QStandardItem * dropInto = itemFromIndex(parent);
+		if (dropInto && !dropInto->data().isNull())
+		{
+			// printf("Dropping onto '%s'\n", dropInto->data().toString().toAscii().data());
+			QStandardItem * const tmp = new QStandardItem("Group");
+			QStandardItem * const p = (dropInto->parent() ? dropInto->parent() : invisibleRootItem());
+			p->insertRow(dropInto->row(), tmp);
+			tmp->setChild(0, 0, dropInto->clone());
+			p->removeRow(dropInto->row());
+			dropInto = tmp;
+		}
 		if (!dropInto)
 			dropInto = invisibleRootItem();
 		int i = 0;
 		for (QList<QUrl>::const_iterator it = urls.begin(); it != urls.end(); ++it, i++)
 		{
-			// const QString txt = QDir::current().relativeFilePath(it->path());
-			const QString txt = it->path();
-			dropInto->appendRow(new QStandardItem(txt));
+			const QString filePath = it->path();
+			QFileInfo fileInfo(filePath);
+			QStandardItem * const newItem = new QStandardItem(fileInfo.fileName());
+			newItem->setData(filePath);
+			dropInto->appendRow(newItem);
 		}
 		return true;
 	}

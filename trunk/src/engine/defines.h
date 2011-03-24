@@ -9,6 +9,8 @@ static const float WALL_WIDTH = GRID_SIZE/8;
 static const float HALF_WALL_WIDTH = WALL_WIDTH/2.0;
 static const int LINE_WIDTH = 4;
 static const int PICTURE_WIDTH = WALL_WIDTH;
+static const float GOAL_RADIUS = 50.0;
+static const float CAMERA_RADIUS = 50.0;
 
 static const GLint     floorNormal[3] = { 0,  0, -1};
 static const GLint   ceilingNormal[3] = { 0, -1,  0};

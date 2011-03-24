@@ -9,7 +9,6 @@ class TrialTreeModel : public QStandardItemModel
 public:
 	TrialTreeModel(QObject *parent = NULL);
 	~TrialTreeModel();
-	Qt::DropActions supportedDragActions() const;
 	QStringList mimeTypes() const;
 protected:
 	bool dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &parent);
