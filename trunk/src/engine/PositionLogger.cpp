@@ -17,12 +17,13 @@ PositionLogger::PositionLogger() :
 
 PositionLogger::~PositionLogger()
 {
+	end();
 }
 
 void PositionLogger::start(const QString &filename)
 {
 	outFile.setFileName(filename);
-	if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text))
+	if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
 	{
 		QMessageBox msg;
 		msg.setText("Error opening opening log file '" + filename + "' for writing!");
@@ -68,9 +69,12 @@ void PositionLogger::log(float x, float y, float angle)
 
 void PositionLogger::end()
 {
-	printf("...Stopped logging!\n");
-	outStream.setDevice(NULL);
-	outFile.close();
+	if (outFile.isOpen())
+	{
+		printf("...Stopped logging!\n");
+		outStream.setDevice(NULL);
+		outFile.close();
+	}
 }
 
 void PositionLogger::draw() const

@@ -32,14 +32,14 @@ public:
 	
 	bool isParticipating() const;
 	
-	void restart();
+	void restart(bool pplaying);
 signals:
 	void zoomChanged();
 	void completedMaze(const QString &filename);
 public slots:
 	void setParticipantName(const QString &name);
 	void setParticipating(bool enabled);
-	bool open(const QString &filename);
+	bool open(const QString &filename, bool pplaying = false);
 	
 	void slot_SwitchToEditingMode();
 	void slot_SwitchToOverviewMode();
@@ -49,6 +49,7 @@ public slots:
 	void slot_SetHorizontalOffset(int x);
 protected slots:
 	void slot_Advance();
+	void slot_SoundFinished();
 protected:
 	void dragEnterEvent(QDragEnterEvent *event);
 	void dragLeaveEvent(QDragLeaveEvent *event);
@@ -130,6 +131,8 @@ protected:
 	GLUquadric *quadric;
 	unsigned int displayListMaze;
 	QSound goalSound;
+	bool playing;
+	bool won;
 };
 
 #endif
