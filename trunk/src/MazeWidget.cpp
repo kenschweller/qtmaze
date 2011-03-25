@@ -147,7 +147,8 @@ void MazeWidget3D::_RestartLogging()
 	logger.end();
 	if (isParticipating())
 	{
-		const QString basePath("logs/" + _participantName + "/" + QFileInfo(_filename).completeBaseName());
+		const QFileInfo mazeFileInfo(_filename);
+		const QString basePath("logs/" + _participantName + "/" + mazeFileInfo.completeBaseName());
 		QDir::current().mkpath(basePath);
 		QString filename;
 		for (int i = 0; i < 9999; i++)
@@ -156,7 +157,7 @@ void MazeWidget3D::_RestartLogging()
 			if (!QFile::exists(filename))
 				break;
 		}
-		logger.start(filename);
+		logger.start(filename, _participantName, mazeFileInfo.fileName());
 	}
 }
 
