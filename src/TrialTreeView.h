@@ -12,10 +12,7 @@ public:
 public slots:
 	void slot_SetEnabled(bool enabled);
 protected:
-	// void dragEnterEvent(QDragEnterEvent *event);
-	// void dragLeaveEvent(QDragLeaveEvent *event);
-	// void dragMoveEvent(QDragMoveEvent *event);
-	// void dropEvent(QDropEvent *event);
+	void contextMenuEvent(QContextMenuEvent *event);
 };
 
 #endif

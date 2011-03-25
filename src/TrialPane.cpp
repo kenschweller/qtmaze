@@ -49,12 +49,13 @@ void TrialPane::slot_ModelChanged()
 void TrialPane::slot_New()
 {
 	_model->removeRows(0, _model->rowCount());
+	_listFilename = "";
 	saveButton->setEnabled(false);
 }
 
 void TrialPane::slot_Open()
 {
-	const QString filename = QFileDialog::getOpenFileName(this, "Open Maze Queue...");
+	const QString filename = QFileDialog::getOpenFileName(this, "Open Maze Queue...", "", "Queue Files (*.run)");
 	if (filename.size() == 0)
 		return;
 	
@@ -88,7 +89,7 @@ void TrialPane::slot_Save()
 
 void TrialPane::slot_SaveAs()
 {
-	const QString filename = QFileDialog::getSaveFileName(this, "Save Maze Queue As...");
+	const QString filename = QFileDialog::getSaveFileName(this, "Save Maze Queue As...", "", "Queue Files (*.run)");
 	if (filename.size() == 0)
 		return;
 	_Save(filename);

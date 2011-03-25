@@ -18,6 +18,7 @@
 
 #include <QStyle>
 #include <QMessageBox>
+#include <QRegExpValidator>
 
 QtMaze::QtMaze(QWidget *parent) : QMainWindow(parent), settings(QSettings::UserScope, "forestdarling.com", "QtMaze"), testing(false)
 {
@@ -109,6 +110,8 @@ void QtMaze::_PopulateToolbars()
 	toolbar->addWidget(_participantName = new QLineEdit(this));
 	// _participantName->setEditable(true);
 	_participantName->setFixedWidth(200);
+	_participantName->setValidator(new QRegExpValidator(QRegExp("[A-Za-z0-9_ ]*"), this));
+	_participantName->setPlaceholderText("[test subject name]");
 	toolbar->addAction("Run Trials", this, SLOT(slot_Run()));
 	toolbar->addAction("Test Map (no logging)", this, SLOT(slot_Test()));
 	addToolBar(toolbar);
@@ -233,6 +236,7 @@ void QtMaze::slot_SwitchToMouselookMode()
 {
 	mazePane->hideScrollbars();
 	mazeWidget3d->slot_SwitchToMouselookMode();
+	mazeWidget3d->setFocus();
 }
 
 void QtMaze::slot_Run()
@@ -244,9 +248,9 @@ void QtMaze::slot_Run()
 	
 	mazeWidget3d->setParticipantName(_participantName->text());
 	mazeWidget3d->setParticipating(true);
-	// mazeWidget3d->restart(true);
-	slot_SwitchToMouselookMode();
 	mazeWidget3d->open(nextFilename, true);
+	mazeWidget3d->setFocus();
+	slot_SwitchToMouselookMode();
 }
 
 void QtMaze::slot_Test()
@@ -254,6 +258,7 @@ void QtMaze::slot_Test()
 	mazeWidget3d->setParticipantName(_participantName->text());
 	mazeWidget3d->setParticipating(false);
 	mazeWidget3d->restart(true);
+	mazeWidget3d->setFocus();
 	testing = true;
 	slot_SwitchToMouselookMode();
 }

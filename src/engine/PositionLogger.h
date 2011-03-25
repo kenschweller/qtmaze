@@ -1,6 +1,7 @@
 #ifndef POSITIONLOGGER_H
 #define POSITIONLOGGER_H
 
+#include <QString>
 #include <QFile>
 #include <QTextStream>
 #include <QVector3D>
@@ -12,7 +13,7 @@ class PositionLogger
 public:
 	PositionLogger();
 	~PositionLogger();
-	void start(const QString &filename);
+	void start(const QString &filename, const QString &subjectName, const QString &mazeFileName);
 	void log(float x, float y, float angle);
 	void end();
 	void draw() const;
