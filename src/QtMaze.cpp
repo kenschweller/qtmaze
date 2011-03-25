@@ -1,6 +1,7 @@
 #include "QtMaze.h"
 #include "MazeWidget.h"
 #include "NewDialog.h"
+#include "PrefDialog.h"
 #include "FilePane.h"
 #include "ImagePane.h"
 #include "MazePane.h"
@@ -42,6 +43,12 @@ QtMaze::QtMaze(QWidget *parent) : QMainWindow(parent), settings(QSettings::UserS
 	_PopulateToolbars();
 
 	newDialog = new NewDialog(settings, this);
+	prefDialog = new PrefDialog(settings, this);
+	
+	connect(prefDialog, SIGNAL(deadZoneChanged(double)), mazeWidget3d, SLOT(slot_SetJoystickDeadZone(double)));
+	connect(prefDialog, SIGNAL(turningSpeedChanged(double)), mazeWidget3d, SLOT(slot_SetJoystickTurningSpeed(double)));
+	connect(prefDialog, SIGNAL(walkingSpeedChanged(double)), mazeWidget3d, SLOT(slot_SetJoystickWalkingSpeed(double)));
+	prefDialog->emitChanged(); // HACK, forces the prefDialog to emit signals to initially set the mazeWidget3d settings
 }
 
 QtMaze::~QtMaze()
@@ -49,6 +56,7 @@ QtMaze::~QtMaze()
 	settings.setValue("working_directory", workingDirectory.absolutePath());
 	settings.setValue("window_geometry", saveGeometry());
 	newDialog->saveSettings(settings);
+	prefDialog->saveSettings(settings);
 }
 
 void QtMaze::_CreateMenus()
@@ -66,7 +74,7 @@ void QtMaze::_CreateMenus()
 	editMenu->addAction("Undo");
 	editMenu->addAction("Redo");
 	editMenu->addSeparator();
-	editMenu->addAction("Preferences");
+	editMenu->addAction("Preferences", this, SLOT(slot_EditPreferences()));
 
 	QMenu * const viewMenu = menuBar()->addMenu("&View");
 	QAction * const fullscreenAction = viewMenu->addAction("Fullscreen", this, SLOT(slot_ViewFullscreen(bool)), QKeySequence("Alt+Return"));
@@ -138,7 +146,7 @@ void QtMaze::slot_FileNew()
 
 void QtMaze::slot_FileOpen()
 {
-	const QString filename = QFileDialog::getOpenFileName(this, "Open Maze File...");
+	const QString filename = QFileDialog::getOpenFileName(this, "Open Maze File...", "", "Maze Files (*.map)");
 	if (filename.size() > 0)
 	{
 		const bool succeeded = mazeWidget3d->open(filename);
@@ -170,7 +178,7 @@ void QtMaze::slot_FileSave()
 
 void QtMaze::slot_FileSaveAs()
 {
-	const QString filename = QFileDialog::getSaveFileName(this, "Save Maze File As...");
+	const QString filename = QFileDialog::getSaveFileName(this, "Save Maze File As...", "", "Maze Files (*.map)");
 	if (filename.size() > 0)
 	{
 		if (!mazeWidget3d->save(filename))
@@ -180,6 +188,11 @@ void QtMaze::slot_FileSaveAs()
 			msg.exec();
 		}
 	}
+}
+
+void QtMaze::slot_EditPreferences()
+{
+	prefDialog->show();
 }
 
 void QtMaze::slot_ViewFullscreen(bool fullscreen)

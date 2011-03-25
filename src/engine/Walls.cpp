@@ -313,14 +313,14 @@ void Walls::draw() const
 					float topOffsetLeft = (walls[i] & WestWall) ? HALF_WALL_WIDTH : 0.0;
 					if (walls[i] == SouthEastCorner)
 						topOffsetLeft = -HALF_WALL_WIDTH;
-					float bottomOffsetLeft = (walls[i+(width+1)] & WestWall) ? HALF_WALL_WIDTH : 0.0;
+					float bottomOffsetLeft = (walls[i+width] & WestWall) ? HALF_WALL_WIDTH : 0.0;
 					if (walls[i+width] == NorthEastCorner)
 						bottomOffsetLeft = -HALF_WALL_WIDTH;
 					
 					float topOffsetRight = (walls[i] & EastWall) ? HALF_WALL_WIDTH : 0.0;
 					if (walls[i] == SouthWestCorner)
 						topOffsetRight = -HALF_WALL_WIDTH;
-					float bottomOffsetRight = (walls[i+(width+1)] & EastWall) ? HALF_WALL_WIDTH : 0.0;
+					float bottomOffsetRight = (walls[i+width] & EastWall) ? HALF_WALL_WIDTH : 0.0;
 					if (walls[i+width] == NorthWestCorner)
 						bottomOffsetRight = -HALF_WALL_WIDTH;
 					

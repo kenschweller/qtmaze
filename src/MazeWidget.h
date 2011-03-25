@@ -7,6 +7,7 @@
 #include "engine/Camera.h"
 #include "engine/PositionLogger.h"
 #include <QPoint>
+#include <QPointF>
 #include <QVector>
 #include <QRect>
 #include <QSize>
@@ -33,6 +34,7 @@ public:
 	bool isParticipating() const;
 	
 	void restart(bool pplaying);
+	void levelView();
 signals:
 	void zoomChanged();
 	void completedMaze(const QString &filename);
@@ -47,6 +49,10 @@ public slots:
 	
 	void slot_SetVerticalOffset(int x);
 	void slot_SetHorizontalOffset(int x);
+	
+	void slot_SetJoystickDeadZone(double deadZone);
+	void slot_SetJoystickWalkingSpeed(double walkingSpeed);
+	void slot_SetJoystickTurningSpeed(double turningSpeed);
 protected slots:
 	void slot_Advance();
 	void slot_SoundFinished();
@@ -61,6 +67,7 @@ protected:
 	void mousePressEvent(QMouseEvent *event);
 	void mouseReleaseEvent(QMouseEvent *event);
     void mouseMoveEvent(QMouseEvent *event);
+	void mouseDoubleClickEvent(QMouseEvent *event);
 	
 	void wheelEvent(QWheelEvent *event);
 	
@@ -77,6 +84,10 @@ protected:
 	QPoint _Unproject(const QPoint &point);
 	void _DrawCamera();
 	void _RestartLogging();
+	QVector3D _GetKeyboardDirection();
+	QVector3D _GetJoystickDirection();
+	float _GetKeyboardTurning();
+	float _GetJoystickTurning();
 	
 	enum ViewMode
 	{
@@ -133,6 +144,9 @@ protected:
 	QSound goalSound;
 	bool playing;
 	bool won;
+	double joystickDeadZone;
+	double joystickWalkingSpeed;
+	double joystickTurningSpeed;
 };
 
 #endif
