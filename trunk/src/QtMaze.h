@@ -9,6 +9,7 @@ class QAction;
 class QLineEdit;
 class MazeWidget3D;
 class NewDialog;
+class PrefDialog;
 class FilePane;
 class TrialPane;
 class ImagePane;
@@ -25,6 +26,7 @@ protected slots:
 	void slot_FileOpen();
 	void slot_FileSave();
 	void slot_FileSaveAs();
+	void slot_EditPreferences();
 	void slot_ViewFullscreen(bool fullscreen);
 	
 	void slot_SwitchToEditingMode();
@@ -50,6 +52,7 @@ protected:
 	TrialPane *trialPane;
 	MazeWidget3D *mazeWidget3d;
 	NewDialog *newDialog;
+	PrefDialog *prefDialog;
 	QLineEdit *_participantName;
 	bool testing;
 };

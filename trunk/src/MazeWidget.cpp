@@ -71,7 +71,8 @@ MazeWidget3D::MazeWidget3D(QWidget *parent)
 	verticalOffset(0), horizontalOffset(0),
 	displayListMaze(0),
 	goalSound("data/sounds/goal.wav"),
-	playing(false), won(false)
+	playing(false), won(false),
+	joystickDeadZone(0.05), joystickWalkingSpeed(1.0), joystickTurningSpeed(1.0)
 {
 	_participating = false;
 	camera = maze.getStartingCamera();
@@ -241,11 +242,8 @@ public:
 	static void Sleep(int seconds) {sleep(seconds);}
 };
 
-void MazeWidget3D::slot_Advance()
+QVector3D MazeWidget3D::_GetKeyboardDirection()
 {
-	if (won || (mode != MODE_MOUSELOOK && mode != MODE_OVERVIEW))
-		return;
-
 	float forward_dir = 0.0;
 	float   right_dir = 0.0;
 	if (holdingKeys[HOLDING_FORWARD]) forward_dir += 1.0;
@@ -253,58 +251,72 @@ void MazeWidget3D::slot_Advance()
 	if (holdingKeys[HOLDING_STRAFELEFT]) right_dir -= 1.0;
 	if (holdingKeys[HOLDING_STRAFERIGHT]) right_dir += 1.0;
 
+	return ((camera.getForward() * forward_dir) + (camera.getRight() * right_dir)).normalized();
+}
+
+static const float JOYSTICK_AXIS_DIVISOR = 65536.0/2.0;
+
+QVector3D MazeWidget3D::_GetJoystickDirection()
+{
+	float y_axis = -static_cast<float>(SDL_JoystickGetAxis(joystick, 1));
+	if (fabs(y_axis) <= joystickDeadZone)
+		y_axis = 0.0;
+	return camera.getForward() * y_axis/JOYSTICK_AXIS_DIVISOR;
+}
+
+float MazeWidget3D::_GetKeyboardTurning()
+{
 	float dx = 0.0;
 	if (holdingKeys[HOLDING_TURNLEFT]) dx -= 1.0;
 	if (holdingKeys[HOLDING_TURNRIGHT]) dx += 1.0;
-	float joy_forward_dir = 0.0;
+	return dx;
+}
+
+float MazeWidget3D::_GetJoystickTurning()
+{
+	float x_axis = static_cast<float>(SDL_JoystickGetAxis(joystick, 0))/JOYSTICK_AXIS_DIVISOR;
+	if (fabs(x_axis) <= joystickDeadZone)
+		x_axis = 0.0;
+	return x_axis;
+}
+
+void MazeWidget3D::slot_Advance()
+{
+	if (won || (mode != MODE_MOUSELOOK && mode != MODE_OVERVIEW))
+		return;
+
 	if (joystick)
-	{
-		const float JOYSTICK_DEAD_ZONE = 0.1;
-		const float JOYSTICK_TURNING_FACTOR = 1.0;
-		const float JOYSTICK_WALKING_FACTOR = 10.0;
-		const float JOYSTICK_AXIS_DIVISOR = 65536.0/2.0;
 		SDL_JoystickUpdate();
-		float x_axis = static_cast<float>(SDL_JoystickGetAxis(joystick, 0))/JOYSTICK_AXIS_DIVISOR;
-		float y_axis = -static_cast<float>(SDL_JoystickGetAxis(joystick, 1))/JOYSTICK_AXIS_DIVISOR;
-		if (fabs(x_axis) <= JOYSTICK_DEAD_ZONE)
-			x_axis = 0.0;
-		if (fabs(y_axis) <= JOYSTICK_DEAD_ZONE)
-			y_axis = 0.0;
-		dx += static_cast<float>(x_axis)*JOYSTICK_TURNING_FACTOR;
-		joy_forward_dir = static_cast<float>(y_axis)*JOYSTICK_WALKING_FACTOR;
-		forward_dir = static_cast<float>(y_axis)*JOYSTICK_WALKING_FACTOR;
-	}
 
-	QVector3D direction = ((camera.getForward() * forward_dir) + (camera.getRight() * right_dir));
-	QVector3D direction2 = (camera.getForward() * joy_forward_dir);
+	static const float KEYBOARD_WALKING_SPEED = 10.0;
+	static const float KEYBOARD_TURNING_SPEED = 1.0;
 
-	// simulate a car backing up behavior
-	// if (forward_dir < 0.0)
-		// dx = -dx;
+	const float turning          = _GetKeyboardTurning()  *KEYBOARD_TURNING_SPEED + _GetJoystickTurning()  *joystickTurningSpeed;
+	const QVector3D displacement = _GetKeyboardDirection()*KEYBOARD_WALKING_SPEED + _GetJoystickDirection()*joystickWalkingSpeed;
 
-	if (!direction.isNull() || !direction2.isNull() || dx != 0.0)
+	if (displacement.isNull() && turning == 0.0)
+		return;
+
+	const QPointF movedPoint = maze.addDisplacement(camera.position.toPointF(), displacement.toPointF());
+	camera.position = QVector3D(movedPoint.x(), movedPoint.y(), camera.position.z());
+	const QLineF viewLine(0.0, 0.0, camera.view.x(), camera.view.y());
+	logger.log(camera.position.x(), camera.position.y(), viewLine.angle());
+
+	if (mode == MODE_MOUSELOOK)
+		camera.moveView(turning, 0.0);
+
+	_SetupProjectionMatrix();
+	_SetupModelMatrix();
+	updateGL();
+
+	if (playing && maze.mapPointInGoalRadius(camera.position.toPoint()))
 	{
-		static const float WALKING_SPEED = 10.0;
-		static const float TURNING_SPEED = 1.0;
-		const QPointF movedPoint = maze.addDisplacement(camera.position.toPointF(), direction.normalized().toPointF() * (WALKING_SPEED) + direction2.toPointF());
-		camera.position = QVector3D(movedPoint.x(), movedPoint.y(), camera.position.z());
-		const QLineF viewLine(0.0, 0.0, camera.view.x(), camera.view.y());
-		logger.log(camera.position.x(), camera.position.y(), viewLine.angle());
-		if (mode == MODE_MOUSELOOK)
-			camera.moveView(dx*TURNING_SPEED, 0.0);
-
-		_SetupModelMatrix();
+		goalSound.play();
+		playing = false;
+		won = true;
+		logger.end();
 		updateGL();
-
-		if (playing && maze.mapPointInGoalRadius(camera.position.toPoint()))
-		{
-			goalSound.play();
-			playing = false;
-			won = true;
-			logger.end();
-			updateGL();
-			QTimer::singleShot(1000, this, SLOT(slot_SoundFinished()));
-		}
+		QTimer::singleShot(1000, this, SLOT(slot_SoundFinished()));
 	}
 }
 
@@ -603,6 +615,25 @@ void MazeWidget3D::mouseMoveEvent(QMouseEvent *event)
 	}
 }
 
+void MazeWidget3D::mouseDoubleClickEvent(QMouseEvent *event)
+{
+	if (mode != MODE_MOUSELOOK)
+		return;
+	levelView();
+}
+
+void MazeWidget3D::levelView()
+{
+	if (camera.view.z() == 0.0)
+		return;
+	camera.view.setZ(0);
+	camera.view.normalize();
+	
+	_SetupProjectionMatrix();
+	_SetupModelMatrix();
+	updateGL();
+}
+
 void MazeWidget3D::wheelEvent(QWheelEvent *event)
 {
 	// int numDegrees = event->delta() / 8;
@@ -743,7 +774,7 @@ void MazeWidget3D::paintGL()
 	glLightfv(GL_LIGHT1, GL_DIFFUSE, LightDiffuse);
 	glLightfv(GL_LIGHT1, GL_POSITION, LightPosition);
 	glEnable(GL_LIGHT1);*/
-	
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	if (won && mode == MODE_MOUSELOOK)
 		return;
@@ -861,6 +892,21 @@ void MazeWidget3D::slot_SetHorizontalOffset(int x)
 		_SetupModelMatrix();
 		updateGL();
 	}
+}
+
+void MazeWidget3D::slot_SetJoystickDeadZone(double deadZone)
+{
+	joystickDeadZone = deadZone;
+}
+
+void MazeWidget3D::slot_SetJoystickWalkingSpeed(double walkingSpeed)
+{
+	joystickWalkingSpeed = walkingSpeed;
+}
+
+void MazeWidget3D::slot_SetJoystickTurningSpeed(double turningSpeed)
+{
+	joystickTurningSpeed = turningSpeed;
 }
 
 #include <algorithm>

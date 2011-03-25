@@ -13,6 +13,7 @@ HEADERS = \
 	src/engine/PositionLogger.h \
 	src/MazeWidget.h \
 	src/NewDialog.h \
+	src/PrefDialog.h \
 	src/FilePane.h \
 	src/ImagePane.h \
 	src/MazePane.h \
@@ -30,6 +31,7 @@ SOURCES = \
 	src/engine/PositionLogger.cpp \
 	src/MazeWidget.cpp \
 	src/NewDialog.cpp \
+	src/PrefDialog.cpp \
 	src/FilePane.cpp \
 	src/ImagePane.cpp \
 	src/MazePane.cpp \
