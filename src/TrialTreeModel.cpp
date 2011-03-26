@@ -31,7 +31,7 @@ void TrialTreeModel::appendMazeFile(const QString &filename)
 {
 	QFileInfo fileInfo(filename);
 	QStandardItem * const newItem = new QStandardItem(fileInfo.fileName());
-	newItem->setData(filename);
+	newItem->setData(QDir::current().relativeFilePath(fileInfo.filePath()));
 	newItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsDragEnabled/* | Qt::ItemIsDropEnabled*/);
 	appendRow(newItem);
 }
@@ -60,10 +60,9 @@ bool TrialTreeModel::dropMimeData(const QMimeData *mimeData, Qt::DropAction acti
 		int i = 0;
 		for (QList<QUrl>::const_iterator it = urls.begin(); it != urls.end(); ++it, i++)
 		{
-			const QString filePath = it->path();
-			QFileInfo fileInfo(filePath);
+			QFileInfo fileInfo(it->toLocalFile());
 			QStandardItem * const newItem = new QStandardItem(fileInfo.fileName());
-			newItem->setData(filePath);
+			newItem->setData(QDir::current().relativeFilePath(fileInfo.filePath()));
 			newItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsDragEnabled/* | Qt::ItemIsDropEnabled*/);
 			dropInto->appendRow(newItem);
 		}

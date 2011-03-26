@@ -44,6 +44,7 @@ TrialPane::TrialPane(QWidget *parent) : QDockWidget("Maze Queue", parent)
 void TrialPane::slot_ModelChanged()
 {
 	saveButton->setEnabled(true);
+	emit(canRunTrials(_model->rowCount() > 0));
 }
 
 void TrialPane::slot_New()
@@ -112,7 +113,7 @@ void TrialPane::_Save(const QString &filename)
 		QModelIndex current = _model->index(0, 0);
 		while (true)
 		{
-			const QString mazeFilename = _model->data(current).toString();
+			const QString mazeFilename = _model->data(current, Qt::UserRole+1).toString();
 			if (mazeFilename.size() == 0)
 				break;
 			out << mazeFilename << "\n";
@@ -134,10 +135,24 @@ QString TrialPane::getNextMaze()
 	if (!_nextMaze.isValid())
 		return "";
 	
-	const QString filename = _model->data(_nextMaze).toString();
+	QString filename;
+	bool exists = false;
+	do
+	{
+		filename = _model->data(_nextMaze, Qt::UserRole+1).toString();
+		QModelIndex tmp = _model->sibling(_nextMaze.row()+1, 0, _nextMaze);
+		_nextMaze = tmp;
+		exists = QFile::exists(filename);
+		if (!exists)
+		{
+			QMessageBox msg;
+			msg.setText("Error, maze file doesn't exist: '" + filename + "'");
+			msg.exec();
+		}
+	} while (!exists && _nextMaze.isValid());
 	
-	QModelIndex tmp = _model->sibling(_nextMaze.row()+1, 0, _nextMaze);
-	_nextMaze = tmp;
+	if (!exists)
+		return "";
 	
 	return filename;
 }

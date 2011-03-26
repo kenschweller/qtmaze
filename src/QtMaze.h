@@ -35,6 +35,7 @@ protected slots:
 	
 	void slot_Run();
 	void slot_Test();
+	void slot_Cancel();
 	void slot_MazeCompleted(const QString &filename);
 private:
 	void _CreateMenus();
@@ -54,6 +55,10 @@ protected:
 	NewDialog *newDialog;
 	PrefDialog *prefDialog;
 	QLineEdit *_participantName;
+    QAction *mouselookModeAction;
+    QAction *runTrialsAction;
+    QAction *testAction;
+    QAction *cancelAction;
 	bool testing;
 };
 
