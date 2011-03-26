@@ -50,6 +50,8 @@ QtMaze::QtMaze(QWidget *parent) : QMainWindow(parent), settings(QSettings::UserS
 	connect(prefDialog, SIGNAL(turningSpeedChanged(double)), mazeWidget3d, SLOT(slot_SetJoystickTurningSpeed(double)));
 	connect(prefDialog, SIGNAL(walkingSpeedChanged(double)), mazeWidget3d, SLOT(slot_SetJoystickWalkingSpeed(double)));
 	prefDialog->emitChanged(); // HACK, forces the prefDialog to emit signals to initially set the mazeWidget3d settings
+	
+	connect(trialPane, SIGNAL(canRunTrials(bool)), runTrialsAction, SLOT(setEnabled(bool)));
 }
 
 QtMaze::~QtMaze()
@@ -98,7 +100,7 @@ void QtMaze::_PopulateToolbars()
 	toolbar->addSeparator();
 	QAction * const editingModeAction = toolbar->addAction("Editing Mode", this, SLOT(slot_SwitchToEditingMode()));
 	QAction * const overviewModeAction = toolbar->addAction("Overview Mode", this, SLOT(slot_SwitchToOverviewMode()));
-	QAction * const mouselookModeAction = toolbar->addAction("Mouselook Mode", this, SLOT(slot_SwitchToMouselookMode()));
+	mouselookModeAction = toolbar->addAction("Mouselook Mode", this, SLOT(slot_SwitchToMouselookMode()));
 	toolbar->addSeparator();
 	editingModeAction->setCheckable(true);
 	overviewModeAction->setCheckable(true);
@@ -112,8 +114,11 @@ void QtMaze::_PopulateToolbars()
 	_participantName->setFixedWidth(200);
 	_participantName->setValidator(new QRegExpValidator(QRegExp("[A-Za-z0-9_ ]*"), this));
 	_participantName->setPlaceholderText("[test subject name]");
-	toolbar->addAction("Run Trials", this, SLOT(slot_Run()));
-	toolbar->addAction("Test Map (no logging)", this, SLOT(slot_Test()));
+	runTrialsAction = toolbar->addAction("Run Trials", this, SLOT(slot_Run()));
+	runTrialsAction->setEnabled(false);
+	testAction = toolbar->addAction("Test Map (no logging)", this, SLOT(slot_Test()));
+	cancelAction = toolbar->addAction("Cancel", this, SLOT(slot_Cancel()));
+	cancelAction->setEnabled(false);
 	addToolBar(toolbar);
 
 	editingModeAction->setChecked(true);
@@ -237,6 +242,7 @@ void QtMaze::slot_SwitchToMouselookMode()
 	mazePane->hideScrollbars();
 	mazeWidget3d->slot_SwitchToMouselookMode();
 	mazeWidget3d->setFocus();
+	mouselookModeAction->setChecked(true);
 }
 
 void QtMaze::slot_Run()
@@ -250,6 +256,9 @@ void QtMaze::slot_Run()
 	mazeWidget3d->setParticipating(true);
 	mazeWidget3d->open(nextFilename, true);
 	mazeWidget3d->setFocus();
+	runTrialsAction->setEnabled(false);
+	testAction->setEnabled(false);
+	cancelAction->setEnabled(true);
 	slot_SwitchToMouselookMode();
 }
 
@@ -261,6 +270,17 @@ void QtMaze::slot_Test()
 	mazeWidget3d->setFocus();
 	testing = true;
 	slot_SwitchToMouselookMode();
+	runTrialsAction->setEnabled(false);
+	testAction->setEnabled(false);
+	cancelAction->setEnabled(true);
+}
+
+void QtMaze::slot_Cancel()
+{
+	runTrialsAction->setEnabled(true);
+	testAction->setEnabled(true);
+	cancelAction->setEnabled(false);
+	mazeWidget3d->restart(false);
 }
 
 void QtMaze::slot_MazeCompleted(const QString &filename)
@@ -269,9 +289,18 @@ void QtMaze::slot_MazeCompleted(const QString &filename)
 	{
 		testing = false;
 		mazeWidget3d->restart(false);
+		runTrialsAction->setEnabled(true);
+		testAction->setEnabled(true);
+		cancelAction->setEnabled(false);
 		return;
 	}
 	const QString nextFilename = trialPane->getNextMaze();
 	if (nextFilename.size() > 0)
 		mazeWidget3d->open(nextFilename, true);
+	else
+	{
+		runTrialsAction->setEnabled(true);
+		testAction->setEnabled(true);
+		cancelAction->setEnabled(false);
+	}
 }

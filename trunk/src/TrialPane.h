@@ -14,6 +14,8 @@ public:
 	
 	void restart();
 	QString getNextMaze();
+signals:
+	void canRunTrials(bool enabled);
 protected slots:
 	void slot_New();
 	void slot_Open();
