@@ -12,6 +12,7 @@ class NewDialog;
 class PrefDialog;
 class FilePane;
 class TrialPane;
+class DataPane;
 class ImagePane;
 class MazePane;
 
@@ -37,13 +38,14 @@ protected slots:
 	void slot_Test();
 	void slot_Cancel();
 	void slot_MazeCompleted(const QString &filename);
+	void slot_LoadLog(const QString &logFilename, const QString &mazeFilename);
 private:
 	void _CreateMenus();
 	void _PopulateToolbars();
 	void _CreateDocks();
+	void _TrialsStarted();
+	void _TrialsEnded();
 protected:
-	void keyPressEvent(QKeyEvent *event);
-	
 	QSettings settings;
 	QDir workingDirectory;
 	QToolBar *toolbar;
@@ -51,10 +53,12 @@ protected:
 	ImagePane *imageDock; 
 	MazePane *mazePane;
 	TrialPane *trialPane;
+	DataPane *dataPane;
 	MazeWidget3D *mazeWidget3d;
 	NewDialog *newDialog;
 	PrefDialog *prefDialog;
 	QLineEdit *_participantName;
+    QAction *fullscreenAction;
     QAction *mouselookModeAction;
     QAction *runTrialsAction;
     QAction *testAction;

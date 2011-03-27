@@ -12,6 +12,7 @@
 #include <QRect>
 #include <QSize>
 #include <QSound>
+class Path;
 
 #include <SDL.h>
 
@@ -35,6 +36,9 @@ public:
 	
 	void restart(bool pplaying);
 	void levelView();
+	
+	void addPath(const Path &path);
+	void clearPaths();
 signals:
 	void zoomChanged();
 	void completedMaze(const QString &filename);
@@ -122,6 +126,7 @@ protected:
 	QTimer timer;
 	Maze maze;
 	Maze oldMaze;
+	QVector<Path> paths;
 	Camera camera;
 	Camera tumble;
 	PositionLogger logger;

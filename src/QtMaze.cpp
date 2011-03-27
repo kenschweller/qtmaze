@@ -6,6 +6,8 @@
 #include "ImagePane.h"
 #include "MazePane.h"
 #include "TrialPane.h"
+#include "DataPane.h"
+#include "engine/Path.h"
 
 #include <QMenuBar>
 #include <QToolBar>
@@ -52,6 +54,7 @@ QtMaze::QtMaze(QWidget *parent) : QMainWindow(parent), settings(QSettings::UserS
 	prefDialog->emitChanged(); // HACK, forces the prefDialog to emit signals to initially set the mazeWidget3d settings
 	
 	connect(trialPane, SIGNAL(canRunTrials(bool)), runTrialsAction, SLOT(setEnabled(bool)));
+	connect(dataPane, SIGNAL(logActivated(const QString &, const QString &)), this, SLOT(slot_LoadLog(const QString &, const QString &)));
 }
 
 QtMaze::~QtMaze()
@@ -80,22 +83,28 @@ void QtMaze::_CreateMenus()
 	editMenu->addAction("Preferences", this, SLOT(slot_EditPreferences()));
 
 	QMenu * const viewMenu = menuBar()->addMenu("&View");
-	QAction * const fullscreenAction = viewMenu->addAction("Fullscreen", this, SLOT(slot_ViewFullscreen(bool)), QKeySequence("Alt+Return"));
+	fullscreenAction = viewMenu->addAction("Fullscreen");
+	fullscreenAction->setShortcut(QKeySequence("Alt+Return"));
+	connect(fullscreenAction, SIGNAL(toggled(bool)), this, SLOT(slot_ViewFullscreen(bool)));
 	QAction * const showFilePaneAction = viewMenu->addAction("Show File Pane", browserDock, SLOT(setVisible(bool)));
 	QAction * const showImagePaneAction = viewMenu->addAction("Show Image Pane", imageDock, SLOT(setVisible(bool)));
 	QAction * const showTrialPaneAction = viewMenu->addAction("Show Trial Pane", trialPane, SLOT(setVisible(bool)));
+	QAction * const showDataPaneAction = viewMenu->addAction("Show Data Pane", dataPane, SLOT(setVisible(bool)));
 	fullscreenAction->setCheckable(true);
+	fullscreenAction->setChecked(windowState() & Qt::WindowFullScreen);
 	showFilePaneAction->setCheckable(true);
 	showImagePaneAction->setCheckable(true);
 	showTrialPaneAction->setCheckable(true);
+	showDataPaneAction->setCheckable(true);
 	connect(browserDock, SIGNAL(visibilityChanged(bool)), showFilePaneAction, SLOT(setChecked(bool)));
 	connect(imageDock, SIGNAL(visibilityChanged(bool)), showImagePaneAction, SLOT(setChecked(bool)));
 	connect(trialPane, SIGNAL(visibilityChanged(bool)), showTrialPaneAction, SLOT(setChecked(bool)));
+	connect(dataPane, SIGNAL(visibilityChanged(bool)), showDataPaneAction, SLOT(setChecked(bool)));
 }
 
 void QtMaze::_PopulateToolbars()
 {
-	QActionGroup * modeGroup = new QActionGroup(this);
+	QActionGroup * const modeGroup = new QActionGroup(this);
 	modeGroup->setExclusive(true);
 	toolbar->addSeparator();
 	QAction * const editingModeAction = toolbar->addAction("Editing Mode", this, SLOT(slot_SwitchToEditingMode()));
@@ -108,20 +117,21 @@ void QtMaze::_PopulateToolbars()
 	modeGroup->addAction(editingModeAction);
 	modeGroup->addAction(overviewModeAction);
 	modeGroup->addAction(mouselookModeAction);
-	// toolbar->addSeparator();
+	editingModeAction->setChecked(true);
+	
 	toolbar->addWidget(_participantName = new QLineEdit(this));
-	// _participantName->setEditable(true);
 	_participantName->setFixedWidth(200);
 	_participantName->setValidator(new QRegExpValidator(QRegExp("[A-Za-z0-9_ ]*"), this));
 	_participantName->setPlaceholderText("[test subject name]");
+	
 	runTrialsAction = toolbar->addAction("Run Trials", this, SLOT(slot_Run()));
-	runTrialsAction->setEnabled(false);
 	testAction = toolbar->addAction("Test Map (no logging)", this, SLOT(slot_Test()));
 	cancelAction = toolbar->addAction("Cancel", this, SLOT(slot_Cancel()));
+	runTrialsAction->setEnabled(false);
 	cancelAction->setEnabled(false);
+	
 	addToolBar(toolbar);
 
-	editingModeAction->setChecked(true);
 }
 #include <cstdio>
 void QtMaze::_CreateDocks()
@@ -133,23 +143,16 @@ void QtMaze::_CreateDocks()
 	connect(browserDock, SIGNAL(mapFileActivated(const QString &)), mazeWidget3d, SLOT(open(const QString &)));
 
 	addDockWidget(Qt::LeftDockWidgetArea, trialPane = new TrialPane(this));
-}
-
-void QtMaze::keyPressEvent(QKeyEvent *event)
-{
-	printf("Whoa\n");
+	addDockWidget(Qt::LeftDockWidgetArea, dataPane = new DataPane(this));
+	// dataPane->hide();
 }
 
 void QtMaze::slot_FileNew()
 {
-	// TODO
-	// HACK
-	// mazeWidget3d->releaseKeyboard();
 	if (newDialog->exec() == QDialog::Accepted)
 	{
 		mazeWidget3d->reset(newDialog->_width->value(), newDialog->_height->value(), newDialog->_description->document()->toPlainText());
 	}
-	// mazeWidget3d->grabKeyboard();
 }
 
 void QtMaze::slot_FileOpen()
@@ -206,21 +209,14 @@ void QtMaze::slot_EditPreferences()
 void QtMaze::slot_ViewFullscreen(bool fullscreen)
 {
 	if (fullscreen)
-	{
 		setWindowState(windowState() | Qt::WindowFullScreen);
-		toolbar->hide();
-		imageDock->hide();
-		browserDock->hide();
-		trialPane->hide();
-	}
 	else
-	{
 		setWindowState(windowState() & ~Qt::WindowFullScreen);
-		toolbar->show();
-		imageDock->show();
-		browserDock->show();
-		trialPane->show();
-	}
+	toolbar->setVisible(!fullscreen);
+	imageDock->setVisible(!fullscreen);
+	browserDock->setVisible(!fullscreen);
+	trialPane->setVisible(!fullscreen);
+	dataPane->setVisible(!fullscreen);
 }
 
 void QtMaze::slot_SwitchToEditingMode()
@@ -256,10 +252,8 @@ void QtMaze::slot_Run()
 	mazeWidget3d->setParticipating(true);
 	mazeWidget3d->open(nextFilename, true);
 	mazeWidget3d->setFocus();
-	runTrialsAction->setEnabled(false);
-	testAction->setEnabled(false);
-	cancelAction->setEnabled(true);
 	slot_SwitchToMouselookMode();
+	_TrialsStarted();
 }
 
 void QtMaze::slot_Test()
@@ -270,17 +264,37 @@ void QtMaze::slot_Test()
 	mazeWidget3d->setFocus();
 	testing = true;
 	slot_SwitchToMouselookMode();
-	runTrialsAction->setEnabled(false);
-	testAction->setEnabled(false);
-	cancelAction->setEnabled(true);
+	_TrialsStarted();
 }
 
 void QtMaze::slot_Cancel()
 {
+	_TrialsEnded();
+	mazeWidget3d->restart(false);
+}
+
+void QtMaze::_TrialsStarted()
+{
+	runTrialsAction->setEnabled(false);
+	testAction->setEnabled(false);
+	cancelAction->setEnabled(true);
+	fullscreenAction->setChecked(true);
+	imageDock->setEnabled(false);
+	browserDock->setEnabled(false);
+	trialPane->setEnabled(false);
+	dataPane->setEnabled(false);
+}
+
+void QtMaze::_TrialsEnded()
+{
 	runTrialsAction->setEnabled(true);
 	testAction->setEnabled(true);
 	cancelAction->setEnabled(false);
-	mazeWidget3d->restart(false);
+	fullscreenAction->setChecked(false);
+	imageDock->setEnabled(true);
+	browserDock->setEnabled(true);
+	trialPane->setEnabled(true);
+	dataPane->setEnabled(true);
 }
 
 void QtMaze::slot_MazeCompleted(const QString &filename)
@@ -289,18 +303,33 @@ void QtMaze::slot_MazeCompleted(const QString &filename)
 	{
 		testing = false;
 		mazeWidget3d->restart(false);
-		runTrialsAction->setEnabled(true);
-		testAction->setEnabled(true);
-		cancelAction->setEnabled(false);
+		_TrialsEnded();
 		return;
 	}
 	const QString nextFilename = trialPane->getNextMaze();
 	if (nextFilename.size() > 0)
+	{
+		fullscreenAction->setChecked(true);
 		mazeWidget3d->open(nextFilename, true);
+	}
 	else
 	{
-		runTrialsAction->setEnabled(true);
-		testAction->setEnabled(true);
-		cancelAction->setEnabled(false);
+		_TrialsEnded();
 	}
+}
+// #include <cstdio>
+void QtMaze::slot_LoadLog(const QString &logFilename, const QString &mazeFilename)
+{
+	// printf("mazeName = %s, logFile = %s\n", mazeFilename.toAscii().data(), logFilename.toAscii().data());
+	const bool succeeded = mazeWidget3d->open(mazeFilename);
+	if (!succeeded)
+	{
+		QMessageBox msg;
+		msg.setText("Error opening maze file!");
+		msg.exec();
+	}
+	
+	Path path;
+	path.load(logFilename);
+	mazeWidget3d->addPath(path);
 }
