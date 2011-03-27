@@ -4,6 +4,7 @@ CONFIG += release
 QT += opengl
 HEADERS = \
 	src/engine/defines.h \
+	src/engine/Path.h \
 	src/engine/Orientation.h \
 	src/engine/Pictures.h \
 	src/engine/Walls.h \
@@ -15,6 +16,8 @@ HEADERS = \
 	src/NewDialog.h \
 	src/PrefDialog.h \
 	src/FilePane.h \
+	src/DataModel.h \
+	src/DataPane.h \
 	src/ImagePane.h \
 	src/MazePane.h \
 	src/TrialTreeModel.h \
@@ -22,6 +25,7 @@ HEADERS = \
 	src/TrialPane.h \
 	src/QtMaze.h
 SOURCES = \
+	src/engine/Path.cpp \
 	src/engine/Orientation.cpp \
 	src/engine/Pictures.cpp \
 	src/engine/Walls.cpp \
@@ -33,6 +37,8 @@ SOURCES = \
 	src/NewDialog.cpp \
 	src/PrefDialog.cpp \
 	src/FilePane.cpp \
+	src/DataModel.cpp \
+	src/DataPane.cpp \
 	src/ImagePane.cpp \
 	src/MazePane.cpp \
 	src/TrialTreeModel.cpp \

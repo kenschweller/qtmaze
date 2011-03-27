@@ -1,4 +1,5 @@
 #include "MazeWidget.h"
+#include "engine/Path.h"
 #include "engine/defines.h"
 
 #include <QApplication>
@@ -140,6 +141,7 @@ void MazeWidget3D::reset(int width, int height, const QString description)
 	maze.reset(width, height);
 	// maze.setDescription(description); // TODO
 	restart(false);
+	paths.clear();
 }
 
 void MazeWidget3D::_RestartLogging()
@@ -157,7 +159,7 @@ void MazeWidget3D::_RestartLogging()
 			if (!QFile::exists(filename))
 				break;
 		}
-		logger.start(filename, _participantName, mazeFileInfo.fileName());
+		logger.start(filename, _participantName, QDir::current().relativeFilePath(mazeFileInfo.filePath()));
 	}
 }
 
@@ -168,6 +170,7 @@ bool MazeWidget3D::open(const QString &filename, bool pplaying)
 	{
 		_filename = filename;
 		restart(pplaying);
+		paths.clear();
 	}
 	return result;
 }
@@ -235,13 +238,21 @@ void MazeWidget3D::restart(bool pplaying)
 	_SetupModelMatrix();
 	updateGL();
 	emit(zoomChanged());
+	if (pplaying)
+		paths.clear();
 }
 
-class SleeperThread : public QThread
+void MazeWidget3D::addPath(const Path &path)
 {
-public:
-	static void Sleep(int seconds) {sleep(seconds);}
-};
+	paths.push_back(path);
+	updateGL();
+}
+
+void MazeWidget3D::clearPaths()
+{
+	paths.clear();
+	updateGL();
+}
 
 QVector3D MazeWidget3D::_GetKeyboardDirection()
 {
@@ -744,12 +755,26 @@ void MazeWidget3D::initializeGL()
 
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
-	/*glShadeModel(GL_SMOOTH);
-	glDisable(GL_LINE_SMOOTH);*/
+	// glShadeModel(GL_SMOOTH);
+	// glDisable(GL_LINE_SMOOTH);
 
 	/*glEnable(GL_LIGHTING);
 	glEnable(GL_NORMALIZE);
-	glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);*/
+	glColorMaterial(GL_FRONT, GL_SPECULAR);
+	glEnable(GL_COLOR_MATERIAL);
+	// glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+	// glColorMaterial(GL_FRONT, GL_EMISSION);
+	glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
+	glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
+	// glEnable(GL_LIGHTING);
+	{
+		static const GLfloat white[] = {0.8f, 0.8f, 0.8f, 1.0f};
+		static const GLfloat cyan[] = {0.f, .8f, .8f, 1.f};
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, cyan);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, white);
+		static const GLfloat shininess[] = {50};
+		glMaterialfv(GL_FRONT, GL_SHININESS, shininess);
+	}*/
 	// glEnable(GL_RESCALE_NORMAL);
 
 	// displayListMaze = glGenLists(1);
@@ -769,7 +794,9 @@ void MazeWidget3D::paintGL()
 {
 	/*static GLfloat LightAmbient[] = { 0.5f, 0.5f, 0.5f, 1.0f };
 	static GLfloat LightDiffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	static GLfloat LightPosition[] = { 0.0f, 0.0f, -100.0f, 1.0f };
+	// static GLfloat LightPosition[] = { 0.0f, 0.0f, -100.0f, 1.0f };
+	// static GLfloat LightPosition[] = { 0.0f, 0.0f, -1000.0f, 1.0f };
+	static GLfloat LightPosition[] = { 1000.0f, 300.0f, -125.0f, 1.0f };
 	// static GLfloat LightPosition[] = {1.0, 0.5, 1.0, 0.0};
 	glLightfv(GL_LIGHT1, GL_AMBIENT, LightAmbient);
 	glLightfv(GL_LIGHT1, GL_DIFFUSE, LightDiffuse);
@@ -787,11 +814,15 @@ void MazeWidget3D::paintGL()
 		maze.draw();
 		// glEndList();
 	}
+	
+	for (QVector<Path>::const_iterator it = paths.begin(); it != paths.end(); ++it)
+		it->draw();
+	
 	// glCallList(displayListMaze);
 	// if (mode == MODE_EDITING)
 	{
 		glLineWidth(4.0);
-		glColor3f(1.0, 0, 0);
+		glColor3f(1.0, 0.0, 0.0);
 		glBegin(GL_LINE_STRIP);
 		for (int i = 0; i < drawPoints.size(); i++)
 			glVertex3i(drawPoints[i].x(), drawPoints[i].y(), -5.0);
