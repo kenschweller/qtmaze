@@ -20,7 +20,7 @@ protected slots:
 protected:
 	void _CrawlDirectory(const QDir &dir);
 	void _AddLogFile(const QString &filename);
-	
+
 	QFileSystemWatcher *watcher;
 	typedef QMap<QString, QPersistentModelIndex> FileMap;
 	FileMap logfiles;

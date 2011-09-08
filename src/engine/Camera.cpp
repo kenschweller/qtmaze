@@ -2,19 +2,31 @@
 #include "defines.h"
 
 // #include <QtOpenGL>
-#ifdef Q_WS_MAC
-#include <OpenGL/glu.h>
-#else
-#include <GL/glu.h> // NOTE: this may need changing when porting to other platforms
-#endif
+// #ifdef Q_WS_MAC
+// #include <OpenGL/glu.h>
+// #else
+// #include <GL/glu.h> // NOTE: this may need changing when porting to other platforms
+// #endif
 #include <QQuaternion>
+#include <QGLWidget>
+
+std::auto_ptr<GLUquadric> Camera::quadric;
 
 Camera::Camera() : position(0.5*GRID_SIZE, 0.5*GRID_SIZE, -GRID_SIZE/2.0), view(0.0, -1.0, 0.0), up(0.0, 0.0, -1.0)
-{	
+{
+	if (!quadric.get())
+		quadric.reset(gluNewQuadric());
 }
 
 Camera::Camera(const QVector3D &p, const QVector3D &v, const QVector3D &u) : position(p), view(v), up(u)
 {
+	if (!quadric.get())
+		quadric.reset(gluNewQuadric());
+}
+
+Camera::~Camera()
+{
+	// gluDeleteQuadric(quadric);
 }
 
 QVector3D Camera::getForward() const
@@ -55,4 +67,36 @@ void Camera::setupMatrices()
 			position.x(), position.y(), position.z(),
 			  target.x(),   target.y(),   target.z(),
 			      up.x(),       up.y(),       up.z());
+}
+
+void Camera::draw() const
+{
+	const QLineF viewLine(0.0, 0.0, view.x(), view.y());
+	const QLineF viewLine2(0.0, 0.0, -view.z(), viewLine.length());
+
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+
+	glTranslatef(position.x(), position.y(), position.z());
+	glRotatef(viewLine.angle() - 90.0, 0.0, 0.0, -1.0);
+	glRotatef(viewLine2.angle(), 1.0, 0.0, 0.0);
+	glRotatef(180.0, 1.0, 0.0, 0.0);
+	glColor3f(0.0, 0.0, 1.0);
+	gluCylinder(quadric.get(), 50.0, 1.0, 50.0, 32, 1);
+	glPushMatrix();
+	glRotatef(180.0, 1.0, 0.0, 0.0);
+	gluDisk(quadric.get(), 0.0, 50.0, 32, 32);
+	glColor3f(0.0, 0.0, 0.0);
+	gluDisk(quadric.get(), 50.0, 52.0, 32, 1);
+	glTranslatef(0.0, 0.0, 1.0);
+	gluDisk(quadric.get(), 10.0, 12.0, 32, 1);
+	glColor3f(0.0, 0.0, 1.0);
+	glPopMatrix();
+	glTranslatef(0.0, 0.0, -50.0);
+	gluCylinder(quadric.get(), 10.0, 10.0, 50.0, 32, 1);
+	glTranslatef(0.0, 0.0, -10.0);
+	gluSphere(quadric.get(), 20.0, 16, 16);
+	glColor3f(1.0, 1.0, 1.0);
+
+	glPopMatrix();
 }

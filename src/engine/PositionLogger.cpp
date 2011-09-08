@@ -46,11 +46,11 @@ void PositionLogger::log(float x, float y, float angle)
 {
 	if (x == old_x && y == old_y && angle == old_angle)
 		return;
-	
+
 	old_x = x;
 	old_y = y;
 	old_angle = angle;
-	
+
 	const qint64 newTime = timer.elapsed();
 	if (outFile.isOpen() && newTime != lastTime)
 	{

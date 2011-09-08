@@ -83,9 +83,9 @@ void Tiles::floodFill(const QPoint &tile, const Walls &walls)
 			continue;
 		if (at(p))
 			continue;
-		
+
 		at(p) = true;
-		
+
 		if (!(walls.at(p) & Walls::EastWall))
 			toFill.push(p + QPoint(0, -1));
 		if (!(walls.at(p + QPoint(0, 1)) & Walls::EastWall))
@@ -174,7 +174,7 @@ void Tiles::drawGrid() const
 		}
 		glEnd();
 	}
-	
+
 	glColor3f(1.0, 1.0, 1.0);
 }
 

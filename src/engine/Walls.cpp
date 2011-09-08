@@ -5,9 +5,9 @@
 #include <QString>
 #include <QGLWidget>
 
-#include "Glee.h"
+// #include "GLee.h"
 
-Walls::Walls() : width(0), height(0), context(NULL), wallTexture(0)
+Walls::Walls() : width(0), height(0)
 {
 }
 
@@ -17,12 +17,12 @@ Walls::~Walls()
 
 bool Walls::operator==(const Walls &other) const
 {
-	return walls == other.walls;
+	return walls == other.walls && texturemap == other.texturemap;
 }
 
 bool Walls::operator!=(const Walls &other) const
 {
-	return walls != other.walls;
+	return walls != other.walls || texturemap != other.texturemap;
 }
 
 void Walls::resize(int w, int h)
@@ -30,11 +30,14 @@ void Walls::resize(int w, int h)
 	width = w + 1;
 	height = h + 1;
 	walls.resize(width*height);
+	texturemap.resize(width*height);
 }
 
 void Walls::clear()
 {
 	walls.fill(NoWalls);
+	texturemap.fill(TextureIDs());
+	textures.clear();
 }
 
 bool Walls::read(QFile &file)
@@ -46,7 +49,7 @@ bool Walls::read(QFile &file)
 		const QString line = file.readLine().trimmed();
 		if (line.size() < width - 1)
 			return false;
-		for (int col = 0; col < width; col++)
+		for (int col = 0; col < width; col++) // TODO should this be width - 1?
 		{
 			const QChar c = line[col];
 			if (c == '+' || c == '-')
@@ -55,7 +58,7 @@ bool Walls::read(QFile &file)
 				walls[row*width+col] |= SouthWall;
 		}
 	}
-	
+
 	// make the wall connections bidirectional
 	for (int row = 1; row < height; row++)
 	{
@@ -67,7 +70,39 @@ bool Walls::read(QFile &file)
 				at(row, col) |= Walls::WestWall;
 		}
 	}
-	
+
+	return true;
+}
+// #include <QDebug>
+bool Walls::readTextures(QFile &file)
+{
+	for (int row = 0; row < height; row++)
+	{
+		if (!file.canReadLine())
+			return false;
+		const QString line = file.readLine().trimmed();
+		// qDebug() << line.size() << "--" << width*(2*5);
+		if (line.size() < width*(2*5))
+			return false;
+		for (int col = 0; col < width; col++)
+		{
+			quint8 ids[5];
+			for (int i = 0; i < 5; i++)
+			{
+				const QString numberString = line.mid(col*(2*5) + i*2, 2);
+				bool ok = false;
+				ids[i] = numberString.toUInt(&ok, 16);
+				if (!ok)
+					return false;
+			}
+			texturemap[row*width + col].vertex          = ids[0];
+			texturemap[row*width + col].east_northeast  = ids[1];
+			texturemap[row*width + col].east_southeast  = ids[2];
+			texturemap[row*width + col].south_southwest = ids[3];
+			texturemap[row*width + col].south_southeast = ids[4];
+		}
+	}
+
 	return true;
 }
 
@@ -101,19 +136,39 @@ int & Walls::at(const QPoint &vertex)
 	return at(vertex.y(), vertex.x());
 }
 
+const Walls::TextureIDs & Walls::internalTextureIdAt(int row, int col) const
+{
+	return texturemap[row*width + col];
+}
+
+const Walls::TextureIDs & Walls::internalTextureIdAt(const QPoint &vertex) const
+{
+	return internalTextureIdAt(vertex.y(), vertex.x());
+}
+
+Walls::TextureIDs & Walls::internalTextureIdAt(int row, int col)
+{
+	return texturemap[row*width + col];
+}
+
+Walls::TextureIDs & Walls::internalTextureIdAt(const QPoint &vertex)
+{
+	return internalTextureIdAt(vertex.y(), vertex.x());
+}
+
 bool Walls::addWallBetweenVertices(const QPoint &a, const QPoint &b)
 {
 	const int distance = (b - a).manhattanLength();
 	if (distance == 0 || distance > 1)
 		return false;
 
-	const bool containsA = contains(a);	
-	const bool containsB = contains(b);	
+	const bool containsA = contains(a);
+	const bool containsB = contains(b);
 	int &aV = at(a);
 	int &bV = at(b);
 
 	// printf("CONNECTING: (%i, %i) -> (%i, %i)\n", a.x(), a.y(), b.x(), b.y());
-	
+
 	if (a.x() < b.x() && a.x() >= 0 && a.x() < width && b.x() >= 0 && b.x() < width)
 	{
 		if (containsA) aV |= EastWall;
@@ -172,7 +227,7 @@ void Walls::removeWallBetweenVertices(const QPoint &a, const QPoint &b)
 		if (containsB) bV &= ~SouthWall;
 		if (containsA) aV &= ~NorthWall;
 	}
-	
+
 	// _RefreshTiles();
 }
 
@@ -191,86 +246,113 @@ void Walls::removeWallBetweenTiles(const QPoint &a, const QPoint &b)
 	else if (b.y() < a.y())
 		removeWallBetweenVertices(b + QPoint(0, 1), b + QPoint(1, 1));
 }
+#include <QDebug>
+void Walls::paintWall(const Orientation &p, const QString &filename)
+{
+	if (filename.size() == 0)
+		return;
+	/*if (!ids.contains(filename))
+	{
+		textures.insert(0, QPair<QString, unsigned int>("data/textures/" + filename, 0));
+	}*/
+	const int textureId = textures.addTexture(filename);
+	// qDebug() << "Painting filename = " << filename << " textureId = " << textureId;
+	switch (p.direction)
+	{
+		case Orientation::North:
+		texturemap[p.tile.y()*width+p.tile.x()].east_southeast = textureId;
+		texturemap[p.tile.y()*width+p.tile.x()+1].vertex = textureId;
+		break;
+
+		case Orientation::South:
+		texturemap[(p.tile.y()+1)*width+p.tile.x()].east_northeast = textureId;
+		texturemap[p.tile.y()*width+p.tile.x()+1].vertex = textureId;
+		break;
+
+		case Orientation::East:
+		texturemap[p.tile.y()*width+p.tile.x()+1].south_southwest = textureId;
+		texturemap[(p.tile.y()+1)*width+p.tile.x()].vertex = textureId;
+		break;
+
+		case Orientation::West:
+		texturemap[p.tile.y()*width+p.tile.x()].south_southeast = textureId;
+		texturemap[(p.tile.y()+1)*width+p.tile.x()].vertex = textureId;
+		break;
+	}
+	texturemap[p.tile.y()*width+p.tile.x()].vertex = textureId;
+}
 
 void Walls::setContext(QGLWidget *newContext)
 {
-	if (context)
-		context->deleteTexture(wallTexture);
-	context = newContext;
-	if (context)
-	{
-		wallTexture = context->bindTexture(QPixmap("data/images/wall.jpg"));
-		if (strstr((char*)glGetString(GL_EXTENSIONS), "GL_EXT_texture_filter_anisotropic"))
-		{
-			float maximumAnisotropy = 1.1;
-			glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maximumAnisotropy);
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, maximumAnisotropy);
-		}
-	}
-	else
-		wallTexture = 0;
+	textures.setContext(newContext);
 }
-
+// #include <QDebug>
 void Walls::draw() const
 {
-	glBindTexture(GL_TEXTURE_2D, wallTexture);
-	glBegin(GL_QUADS);
+	// qDebug() << "Started drawing...";
+	for (WallTextures::InternalIdToIdMap::const_iterator it = textures.texturesAvailable().begin(); it != textures.texturesAvailable().end(); it++)
 	{
+		// qDebug() << "\tBinding" << it.key() << it.value();
+		glBindTexture(GL_TEXTURE_2D, it.value());
+		glBegin(GL_QUADS);
 		int i = 0;
 		for (int row = 0; row < height; row++)
 		{
 			for (int col = 0; col < width; col++, i++)
 			{
 				// the end caps
-				switch (walls[i])
+				if (texturemap[i].vertex == it.key())
 				{
-					case NorthWall:
-					glNormal3iv(northWallNormal);
-					glTexCoord2i(0, 0); // upper north-west corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower north-west corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, 0);
-					glTexCoord2i(1, 1); // lower north-east corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, 0);
-					glTexCoord2i(1, 0); // upper north-east corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
-					break;
-					
-					case SouthWall:
-					glNormal3iv(southWallNormal);
-					glTexCoord2i(1, 0); // upper south-west corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
-					glTexCoord2i(0, 0); // upper south-east corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower south-east corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, 0);
-					glTexCoord2i(1, 1); // lower south-west corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, 0);
-					break;
-					
-					case WestWall:
-					glNormal3iv(westWallNormal);
-					glTexCoord2i(1, 0); // upper north-west corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
-					glTexCoord2i(0, 0); // upper south-west corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower south-west corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
-					glTexCoord2i(1, 1); // lower north-west corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
-					break;
-					
-					case EastWall:
-					glNormal3iv(eastWallNormal);
-					glTexCoord2i(0, 0); // upper north-east corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower north-east corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
-					glTexCoord2i(1, 1); // lower south-east corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
-					glTexCoord2i(1, 0); // upper south-east corner
-					glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
-					break;
+					switch (walls[i])
+					{
+						case NorthWall:
+						glNormal3iv(northWallNormal);
+						glTexCoord2i(0, 0); // upper north-west corner
+						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
+						glTexCoord2i(0, 1); // lower north-west corner
+						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, 0);
+						glTexCoord2i(1, 1); // lower north-east corner
+						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, 0);
+						glTexCoord2i(1, 0); // upper north-east corner
+						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
+						break;
+
+						case SouthWall:
+						glNormal3iv(southWallNormal);
+						glTexCoord2i(1, 0); // upper south-west corner
+						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
+						glTexCoord2i(0, 0); // upper south-east corner
+						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
+						glTexCoord2i(0, 1); // lower south-east corner
+						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, 0);
+						glTexCoord2i(1, 1); // lower south-west corner
+						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, 0);
+						break;
+
+						case WestWall:
+						glNormal3iv(westWallNormal);
+						glTexCoord2i(1, 0); // upper north-west corner
+						glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
+						glTexCoord2i(0, 0); // upper south-west corner
+						glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
+						glTexCoord2i(0, 1); // lower south-west corner
+						glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
+						glTexCoord2i(1, 1); // lower north-west corner
+						glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
+						break;
+
+						case EastWall:
+						glNormal3iv(eastWallNormal);
+						glTexCoord2i(0, 0); // upper north-east corner
+						glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
+						glTexCoord2i(0, 1); // lower north-east corner
+						glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
+						glTexCoord2i(1, 1); // lower south-east corner
+						glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
+						glTexCoord2i(1, 0); // upper south-east corner
+						glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
+						break;
+					}
 				}
 				if (walls[i] & EastWall)
 				{
@@ -280,33 +362,39 @@ void Walls::draw() const
 					float rightOffsetTop = (walls[i+1] & NorthWall) ? HALF_WALL_WIDTH : 0.0;
 					if (walls[i+1] == SouthWestCorner)
 						rightOffsetTop = -HALF_WALL_WIDTH;
-					
+
 					float leftOffsetBottom = (walls[i] & SouthWall) ? HALF_WALL_WIDTH : 0.0;
 					if (walls[i] == NorthEastCorner)
 						leftOffsetBottom = -HALF_WALL_WIDTH;
 					float rightOffsetBottom = (walls[i+1] & SouthWall) ? HALF_WALL_WIDTH : 0.0;
 					if (walls[i+1] == NorthWestCorner)
 						rightOffsetBottom = -HALF_WALL_WIDTH;
-					
-					glNormal3iv(northWallNormal);
-					glTexCoord2i(0, 0); // upper north-west corner
-					glVertex3i(col*GRID_SIZE+leftOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower north-west corner
-					glVertex3i(col*GRID_SIZE+leftOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
-					glTexCoord2i(1, 1); // lower north-east corner
-					glVertex3i((col+1)*GRID_SIZE-rightOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
-					glTexCoord2i(1, 0); // upper north-east corner
-					glVertex3i((col+1)*GRID_SIZE-rightOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
-					
-					glNormal3iv(southWallNormal);
-					glTexCoord2i(1, 0); // upper south-west corner
-					glVertex3i(col*GRID_SIZE+leftOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
-					glTexCoord2i(0, 0); // upper south-east corner
-					glVertex3i((col+1)*GRID_SIZE-rightOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower south-east corner
-					glVertex3i((col+1)*GRID_SIZE-rightOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
-					glTexCoord2i(1, 1); // lower south-west corner
-					glVertex3i(col*GRID_SIZE+leftOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
+
+					if (texturemap[i].east_southeast == it.key())
+					{
+						glNormal3iv(northWallNormal);
+						glTexCoord2i(0, 0); // upper north-west corner
+						glVertex3i(col*GRID_SIZE+leftOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
+						glTexCoord2i(0, 1); // lower north-west corner
+						glVertex3i(col*GRID_SIZE+leftOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
+						glTexCoord2i(1, 1); // lower north-east corner
+						glVertex3i((col+1)*GRID_SIZE-rightOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
+						glTexCoord2i(1, 0); // upper north-east corner
+						glVertex3i((col+1)*GRID_SIZE-rightOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
+					}
+
+					if (texturemap[i].east_northeast == it.key())
+					{
+						glNormal3iv(southWallNormal);
+						glTexCoord2i(1, 0); // upper south-west corner
+						glVertex3i(col*GRID_SIZE+leftOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
+						glTexCoord2i(0, 0); // upper south-east corner
+						glVertex3i((col+1)*GRID_SIZE-rightOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
+						glTexCoord2i(0, 1); // lower south-east corner
+						glVertex3i((col+1)*GRID_SIZE-rightOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
+						glTexCoord2i(1, 1); // lower south-west corner
+						glVertex3i(col*GRID_SIZE+leftOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
+					}
 				}
 				if (walls[i] & SouthWall)
 				{
@@ -316,39 +404,46 @@ void Walls::draw() const
 					float bottomOffsetLeft = (walls[i+width] & WestWall) ? HALF_WALL_WIDTH : 0.0;
 					if (walls[i+width] == NorthEastCorner)
 						bottomOffsetLeft = -HALF_WALL_WIDTH;
-					
+
 					float topOffsetRight = (walls[i] & EastWall) ? HALF_WALL_WIDTH : 0.0;
 					if (walls[i] == SouthWestCorner)
 						topOffsetRight = -HALF_WALL_WIDTH;
 					float bottomOffsetRight = (walls[i+width] & EastWall) ? HALF_WALL_WIDTH : 0.0;
 					if (walls[i+width] == NorthWestCorner)
 						bottomOffsetRight = -HALF_WALL_WIDTH;
-					
-					glNormal3iv(westWallNormal);
-					glTexCoord2i(1, 0); // upper north-west corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetRight, -GRID_SIZE);
-					glTexCoord2i(0, 0); // upper south-west corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetRight, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower south-west corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetRight, 0);
-					glTexCoord2i(1, 1); // lower north-west corner
-					glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetRight, 0);
-					
-					glNormal3iv(eastWallNormal);
-					glTexCoord2i(0, 0); // upper north-east corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetLeft, -GRID_SIZE);
-					glTexCoord2i(0, 1); // lower north-east corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetLeft, 0);
-					glTexCoord2i(1, 1); // lower south-east corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetLeft, 0);
-					glTexCoord2i(1, 0); // upper south-east corner
-					glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetLeft, -GRID_SIZE);
+
+					if (texturemap[i].south_southeast == it.key())
+					{
+						glNormal3iv(westWallNormal);
+						glTexCoord2i(1, 0); // upper north-west corner
+						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetRight, -GRID_SIZE);
+						glTexCoord2i(0, 0); // upper south-west corner
+						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetRight, -GRID_SIZE);
+						glTexCoord2i(0, 1); // lower south-west corner
+						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetRight, 0);
+						glTexCoord2i(1, 1); // lower north-west corner
+						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetRight, 0);
+					}
+
+					if (texturemap[i].south_southwest == it.key())
+					{
+						glNormal3iv(eastWallNormal);
+						glTexCoord2i(0, 0); // upper north-east corner
+						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetLeft, -GRID_SIZE);
+						glTexCoord2i(0, 1); // lower north-east corner
+						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetLeft, 0);
+						glTexCoord2i(1, 1); // lower south-east corner
+						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetLeft, 0);
+						glTexCoord2i(1, 0); // upper south-east corner
+						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetLeft, -GRID_SIZE);
+					}
 				}
 			}
 		}
+		glEnd();
 	}
-	glEnd();
 	glBindTexture(GL_TEXTURE_2D, 0);
+	// qDebug() << "Finished drawing";
 }
 
 void Walls::drawTops() const

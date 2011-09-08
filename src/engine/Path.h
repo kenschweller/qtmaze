@@ -11,11 +11,11 @@ class Path
 public:
 	Path();
 	~Path();
-	
+
 	void load(const QString &filename);
-	
+
 	void addPoint(qint64 milliseconds, const QPointF &position, float angle);
-	
+
 	void draw() const;
 protected:
 	class DataPoint
@@ -23,7 +23,7 @@ protected:
 	public:
 		DataPoint() : milliseconds(0), angle(0.0) {}
 		DataPoint(qint64 mmilliseconds, const QPointF &pposition, float aangle) : milliseconds(mmilliseconds), position(pposition), angle(aangle) {}
-		
+
 		qint64 milliseconds;
 		QPointF position;
 		float angle;

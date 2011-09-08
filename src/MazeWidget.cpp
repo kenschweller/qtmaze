@@ -31,8 +31,9 @@ enum Holding
 	HOLDING_TURNRIGHT
 };
 
-QPoint MazeWidget3D::_Unproject(const QPoint &point)
+QPoint MazeWidget3D::_Unproject(const QPoint &point, bool wallsToo)
 {
+	Q_UNUSED(wallsToo);
 	GLdouble modelviewMatrix[16];
 	GLdouble projectionMatrix[16];
 	GLint viewport[4];
@@ -42,26 +43,25 @@ QPoint MazeWidget3D::_Unproject(const QPoint &point)
 
 	GLdouble x, y, z;
 	GLdouble x2, y2, z2;
-	gluUnProject(point.x(), height() - point.y(), 0.0, modelviewMatrix, projectionMatrix, viewport, &x, &y, &z);
-	gluUnProject(point.x(), height() - point.y(), 1.0, modelviewMatrix, projectionMatrix, viewport, &x2, &y2, &z2);
+	gluUnProject(point.x(), height() - point.y(), 1.0, modelviewMatrix, projectionMatrix, viewport, &x, &y, &z);
+	gluUnProject(point.x(), height() - point.y(), 0.0, modelviewMatrix, projectionMatrix, viewport, &x2, &y2, &z2);
 
-	QVector3D rayEnd(x, y, z);
-	/*QVector3D rayStart(x2, y2, z2);
+	const QVector3D rayEnd(x, y, z);
+	const QVector3D rayStart(x2, y2, z2);
+	const QVector3D rayDirection = (rayEnd - rayStart).normalized();
 
 	const QVector3D mapCenter = QVector3D(maze.getWidth()/2, maze.getHeight()/2, -GRID_SIZE/2);// + tumble.position;
 	QVector3D viewFrom = mapCenter - tumble.view*(maze.getWidth() > maze.getHeight() ? maze.getWidth() : maze.getHeight())*1.3*scaleFactor;
 
-	if (mode == MODE_OVERVIEW)
+	if (mode == MODE_OVERVIEW || mode == MODE_MOUSELOOK)
 	{
-		rayEnd = viewFrom - (rayEnd - viewFrom).normalized()*viewFrom.z();
+		// TODO make this not always interesect with the floor, but
+		// rather test the walls and such that the ray passes through
+		const QVector3D intersection = rayStart + rayDirection*abs(rayStart.z()/rayDirection.z());
+		return intersection.toPoint();
 	}
-	else if (mode == MODE_MOUSELOOK)
-	{
-		// rayEnd -= camera.position;
-		rayEnd = camera.position - camera.view*camera.position.z();
-	}*/
-
-	return rayEnd.toPoint();
+	else
+		return rayEnd.toPoint();
 }
 
 MazeWidget3D::MazeWidget3D(QWidget *parent)
@@ -73,7 +73,7 @@ MazeWidget3D::MazeWidget3D(QWidget *parent)
 	displayListMaze(0),
 	goalSound("data/sounds/goal.wav"),
 	playing(false), won(false),
-	joystickDeadZone(0.05), joystickWalkingSpeed(1.0), joystickTurningSpeed(1.0)
+	joystickDeadZone(0.05), joystickWalkingSpeed(1.0), joystickTurningSpeed(1.0), paintingWallsMode(false)
 {
 	_participating = false;
 	camera = maze.getStartingCamera();
@@ -222,6 +222,16 @@ void MazeWidget3D::slot_SwitchToMouselookMode()
 		updateGL();
 		setMouseTracking(false);
 	}
+}
+
+void MazeWidget3D::slot_SwitchToWallPlacingMode()
+{
+	paintingWallsMode = false;
+}
+
+void MazeWidget3D::slot_SwitchToWallPaintingMode()
+{
+	paintingWallsMode = true;
 }
 
 void MazeWidget3D::restart(bool pplaying)
@@ -478,6 +488,8 @@ void MazeWidget3D::contextMenuEvent(QContextMenuEvent *event)
 	{
 		camera.position.setX(mapPoint.x());
 		camera.position.setY(mapPoint.y());
+		_SetupModelMatrix();
+		_SetupProjectionMatrix();
 		updateGL();
 	}
 }
@@ -486,103 +498,114 @@ void MazeWidget3D::mousePressEvent(QMouseEvent *event)
 {
 	if (occupation != OCCUPATION_NONE)
 		return;
-
 	lastPos = event->pos();
+	if (event->button() != Qt::LeftButton)
+		return;
+
+	if (mode == MODE_OVERVIEW && (event->modifiers() & Qt::AltModifier))
+		return;
+	const QPoint mapPoint = _Unproject(event->pos());
 	if (mode == MODE_EDITING)
 	{
-		if (event->button() == Qt::LeftButton)
+		const Orientation orientation = maze.getNearestOrientation(mapPoint);
+		const QString filename = maze.getPicture(orientation).filename;
+		if (QLineF(camera.position.toPoint(), mapPoint).length() < CAMERA_RADIUS)
 		{
-			const QPoint mapPoint = _Unproject(event->pos());
-
-			const Orientation orientation = maze.getNearestOrientation(mapPoint);
-			const QString filename = maze.getPicture(orientation).filename;
-			if (QLineF(camera.position.toPoint(), mapPoint).length() < CAMERA_RADIUS)
+			QDrag drag(this);
 			{
-				QDrag * const drag = new QDrag(this);
-				{
-					QMimeData * const mimeData = new QMimeData;
-					mimeData->setData("application/x-qtmaze-cameraposition", QByteArray());
-					drag->setMimeData(mimeData);
-				}
-				drag->start(Qt::CopyAction | Qt::MoveAction);
-				delete drag;
+				QMimeData * const mimeData = new QMimeData;
+				mimeData->setData("application/x-qtmaze-cameraposition", QByteArray());
+				drag.setMimeData(mimeData);
 			}
-			else if (filename.size() > 0)
-			{
-				maze.removePicture(orientation);
-				QDrag * const drag = new QDrag(this);
-
-				{
-					QByteArray encoded;
-					QDataStream stream(&encoded, QIODevice::WriteOnly);
-					int row = 0, col = 0;
-					QMap<int, QVariant> roleDataMap;
-					roleDataMap[Qt::DisplayRole] = filename;
-					roleDataMap[Qt::DecorationRole] = 0;
-					stream << row << col << roleDataMap;
-					{
-						QMimeData * const mimeData = new QMimeData;
-						mimeData->setData("application/x-qabstractitemmodeldatalist", encoded);
-						drag->setMimeData(mimeData);
-					}
-				}
-
-				drag->start(Qt::CopyAction | Qt::MoveAction);
-
-				delete drag;
-			}
-			else if (maze.mapPointInGoalRadius(mapPoint))
-			{
-				maze.removeGoal(orientation.tile);
-				QDrag * const drag = new QDrag(this);
-				{
-					QMimeData * const mimeData = new QMimeData;
-					mimeData->setData("application/x-qtmaze-newgoal", QByteArray());
-					drag->setMimeData(mimeData);
-				}
-				drag->start(Qt::CopyAction | Qt::MoveAction);
-				delete drag;
-			}
-			else if (orientation == maze.getStartingOrientation())
-			{
-				QDrag * const drag = new QDrag(this);
-				{
-					QMimeData * const mimeData = new QMimeData;
-					mimeData->setData("application/x-qtmaze-startingorientation", QByteArray());
-					drag->setMimeData(mimeData);
-				}
-				drag->start(Qt::CopyAction | Qt::MoveAction);
-				delete drag;
-			}
-			else if (event->modifiers() & Qt::AltModifier)
-			{
-				// if (abs(mapPoint.x()) < RESIZE_THRESHOLD)
-			}
-			else
-			{
-				occupation = OCCUPATION_DRAWING;
-				drawPoints.clear();
-				drawPoints.append(mapPoint);
-				if (event->modifiers() & Qt::ShiftModifier)
-					lastTilePos = maze.getNearestTile(mapPoint);
-				else
-					lastTilePos = maze.getNearestVertex(mapPoint);
-			}
+			drag.start(Qt::CopyAction | Qt::MoveAction);
 		}
+		else if (filename.size() > 0)
+		{
+			maze.removePicture(orientation);
+			QDrag drag(this);
+
+			{
+				QByteArray encoded;
+				QDataStream stream(&encoded, QIODevice::WriteOnly);
+				int row = 0, col = 0;
+				QMap<int, QVariant> roleDataMap;
+				roleDataMap[Qt::DisplayRole] = filename;
+				roleDataMap[Qt::DecorationRole] = 0;
+				stream << row << col << roleDataMap;
+				{
+					QMimeData * const mimeData = new QMimeData;
+					mimeData->setData("application/x-qabstractitemmodeldatalist", encoded);
+					drag.setMimeData(mimeData);
+				}
+			}
+
+			drag.start(Qt::CopyAction | Qt::MoveAction);
+		}
+		else if (maze.mapPointInGoalRadius(mapPoint))
+		{
+			maze.removeGoal(orientation.tile);
+			QDrag drag(this);
+			{
+				QMimeData * const mimeData = new QMimeData;
+				mimeData->setData("application/x-qtmaze-newgoal", QByteArray());
+				drag.setMimeData(mimeData);
+			}
+			drag.start(Qt::CopyAction | Qt::MoveAction);
+		}
+		else if (orientation == maze.getStartingOrientation())
+		{
+			QDrag drag(this);
+			{
+				QMimeData * const mimeData = new QMimeData;
+				mimeData->setData("application/x-qtmaze-startingorientation", QByteArray());
+				drag.setMimeData(mimeData);
+			}
+			drag.start(Qt::CopyAction | Qt::MoveAction);
+		}
+		else
+		{
+			goto normal_click;
+		}
+		return;
+	}
+
+	normal_click:
+	if (paintingWallsMode)
+	{
+		occupation = OCCUPATION_PAINTING;
+		if (currentWallTextureFilename.size() == 0) // TODO necessary?
+			currentWallTextureFilename = "wall.jpg";
+		maze.startPaintingWallTexture(currentWallTextureFilename);
+		maze.continuePaintingWallTexture(mapPoint);
+		updateGL();
+	}
+	else
+	{
+		occupation = OCCUPATION_DRAWING;
+		drawPoints.clear();
+		drawPoints.append(mapPoint);
+		if (event->modifiers() & Qt::ShiftModifier)
+			lastTilePos = maze.getNearestTile(mapPoint);
+		else
+			lastTilePos = maze.getNearestVertex(mapPoint);
 	}
 }
 
 void MazeWidget3D::mouseReleaseEvent(QMouseEvent *event)
 {
 	lastPos = event->pos();
-	// if (mode == MODE_EDITING)
+	if (event->button() != Qt::LeftButton)
+		return;
+	if (occupation == OCCUPATION_DRAWING)
 	{
-		if (event->button() == Qt::LeftButton && occupation == OCCUPATION_DRAWING)
-		{
-			drawPoints.clear();
-			updateGL();
-			occupation = OCCUPATION_NONE;
-		}
+		drawPoints.clear();
+		updateGL();
+		occupation = OCCUPATION_NONE;
+	}
+	else if (occupation == OCCUPATION_PAINTING)
+	{
+		maze.endPaintingWallTexture(true);
+		occupation = OCCUPATION_NONE;
 	}
 }
 // #include <cstdio>
@@ -595,7 +618,7 @@ void MazeWidget3D::mouseMoveEvent(QMouseEvent *event)
 	const float dy = static_cast<float>(newPos.y() - lastPos.y())/DIVISOR;
 	lastPos = event->pos();
 
-	if (mode == MODE_MOUSELOOK || mode == MODE_OVERVIEW)
+	if ((mode == MODE_MOUSELOOK || mode == MODE_OVERVIEW) && occupation == OCCUPATION_NONE)
 	{
 		if (mode == MODE_MOUSELOOK)
 			camera.moveView(-dx, -dy, false);
@@ -604,26 +627,29 @@ void MazeWidget3D::mouseMoveEvent(QMouseEvent *event)
 		_SetupModelMatrix();
 		updateGL();
 	}
-	else if (mode == MODE_EDITING)
+	else if (occupation == OCCUPATION_DRAWING)
 	{
-		if (occupation == OCCUPATION_DRAWING)
+		const QPoint mapPoint = _Unproject(event->pos());
+		if (event->modifiers() & Qt::ShiftModifier)
 		{
-			const QPoint mapPoint = _Unproject(event->pos());
-			if (event->modifiers() & Qt::ShiftModifier)
-			{
-				const QPoint curTilePos = maze.getNearestTile(mapPoint);
-				maze.removeWall(lastTilePos, curTilePos);
-				lastTilePos = curTilePos;
-			}
-			else
-			{
-				const QPoint curTilePos = maze.getNearestVertex(mapPoint);
-				maze.connectVertices(lastTilePos, curTilePos);
-				lastTilePos = curTilePos;
-			}
-			drawPoints.append(mapPoint);
-			updateGL();
+			const QPoint curTilePos = maze.getNearestTile(mapPoint);
+			maze.removeWall(lastTilePos, curTilePos);
+			lastTilePos = curTilePos;
 		}
+		else
+		{
+			const QPoint curTilePos = maze.getNearestVertex(mapPoint);
+			maze.connectVertices(lastTilePos, curTilePos);
+			lastTilePos = curTilePos;
+		}
+		drawPoints.append(mapPoint);
+		updateGL();
+	}
+	else if (occupation == OCCUPATION_PAINTING)
+	{
+		const QPoint mapPoint = _Unproject(event->pos());
+		maze.continuePaintingWallTexture(mapPoint);
+		updateGL();
 	}
 }
 
@@ -640,7 +666,7 @@ void MazeWidget3D::levelView()
 		return;
 	camera.view.setZ(0);
 	camera.view.normalize();
-	
+
 	_SetupProjectionMatrix();
 	_SetupModelMatrix();
 	updateGL();
@@ -814,10 +840,10 @@ void MazeWidget3D::paintGL()
 		maze.draw();
 		// glEndList();
 	}
-	
+
 	for (QVector<Path>::const_iterator it = paths.begin(); it != paths.end(); ++it)
 		it->draw();
-	
+
 	// glCallList(displayListMaze);
 	// if (mode == MODE_EDITING)
 	{
@@ -940,8 +966,13 @@ void MazeWidget3D::slot_SetJoystickTurningSpeed(double turningSpeed)
 {
 	joystickTurningSpeed = turningSpeed;
 }
+// #include <QDebug>
+void MazeWidget3D::slot_SetCurrentWallTexture(const QString &filename)
+{
+	// qDebug() << "MazeWidget3D::slot_SetCurrentWallTexture: " << filename;
+	currentWallTextureFilename = filename;
+}
 
-#include <algorithm>
 void MazeWidget3D::_SetupModelMatrix()
 {
 	glMatrixMode(GL_MODELVIEW);
@@ -953,21 +984,7 @@ void MazeWidget3D::_SetupModelMatrix()
 	}
 	else if (mode == MODE_EDITING)
 	{
-		// const GLfloat mazeAspectRatio = maze.getWidth()/maze.getHeight();
-		// const GLfloat aspectRatio = calculateAspectRatio();
-		// const GLfloat mazeSize = std::min(maze.getWidth(), maze.getHeight());
-
 		glTranslatef(-horizontalOffset, -verticalOffset, 0.0);
-
-		/*if (aspectRatio > 1.0)
-			glTranslatef((aspectRatio - 1.0)*mazeSize/2.0, 0.0, 0.0);
-		else
-			glTranslatef(0.0, (1.0/aspectRatio - 1.0)*mazeSize/2.0, 0.0);
-
-		if (mazeAspectRatio < 1.0)
-			glTranslatef(0.0, -(maze.getHeight()-maze.getWidth())/2.0, 0.0);
-		else
-			glTranslatef(-(maze.getWidth()-maze.getHeight())/2.0, 0.0, 0.0);*/
 	}
 	else if (mode == MODE_OVERVIEW)
 	{
@@ -998,33 +1015,5 @@ void MazeWidget3D::_DrawCamera()
 
 	// draw an camera indicator
 	if (mode != MODE_MOUSELOOK)
-	{
-		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
-
-		glTranslatef(camera.position.x(), camera.position.y(), camera.position.z());
-		const QLineF viewLine(0.0, 0.0, camera.view.x(), camera.view.y());
-		const QLineF viewLine2(0.0, 0.0, -camera.view.z(), viewLine.length());
-		glRotatef(viewLine.angle() - 90.0, 0.0, 0.0, -1.0);
-		glRotatef(viewLine2.angle(), 1.0, 0.0, 0.0);
-		glRotatef(180.0, 1.0, 0.0, 0.0);
-		glColor3f(0.0, 0.0, 1.0);
-		gluCylinder(quadric, 50.0, 1.0, 50.0, 32, 1);
-		glPushMatrix();
-		glRotatef(180.0, 1.0, 0.0, 0.0);
-		gluDisk(quadric, 0.0, 50.0, 32, 32);
-		glColor3f(0.0, 0.0, 0.0);
-		gluDisk(quadric, 50.0, 52.0, 32, 1);
-		glTranslatef(0.0, 0.0, 1.0);
-		gluDisk(quadric, 10.0, 12.0, 32, 1);
-		glColor3f(0.0, 0.0, 1.0);
-		glPopMatrix();
-		glTranslatef(0.0, 0.0, -50.0);
-		gluCylinder(quadric, 10.0, 10.0, 50.0, 32, 1);
-		glTranslatef(0.0, 0.0, -10.0);
-		gluSphere(quadric, 20.0, 16, 16);
-		glColor3f(1.0, 1.0, 1.0);
-
-		glPopMatrix();
-	}
+		camera.draw();
 }

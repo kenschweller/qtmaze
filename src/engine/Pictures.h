@@ -24,17 +24,17 @@ public:
 public:
 	Pictures();
 	~Pictures();
-	
+
 	Pictures &operator=(const Pictures &other);
 	bool operator==(const Pictures &other) const;
 	bool operator!=(const Pictures &other) const;
-	
+
 	Picture at(const Orientation orientation) const;
-	
+
 	void add(const Orientation orientation, const QString &filename);
 	void remove(const Orientation orientation);
 	void clear();
-	
+
 	void draw() const;
 	void setContext(QGLWidget *newContext);
 protected:
@@ -52,7 +52,7 @@ protected:
 	PictureMap pictures;
 	TextureMap textures;
 	QGLWidget *context;
-	
+
 	friend QTextStream & operator<<(QTextStream &, const Pictures &);
 };
 

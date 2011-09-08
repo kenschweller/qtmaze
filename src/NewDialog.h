@@ -12,7 +12,7 @@ class NewDialog : public QDialog
 public:
 	NewDialog(QSettings &settings, QWidget *parent = NULL);
 	void saveSettings(QSettings &settings);
-	
+
 	QSpinBox *_width;
 	QSpinBox *_height;
 	QTextEdit *_description;

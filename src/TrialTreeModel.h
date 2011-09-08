@@ -10,7 +10,7 @@ public:
 	TrialTreeModel(QObject *parent = NULL);
 	~TrialTreeModel();
 	QStringList mimeTypes() const;
-	
+
 	void appendMazeFile(const QString &filename);
 protected:
 	bool dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &parent);

@@ -63,7 +63,7 @@ void Maze::reset(int newWidth, int newHeight)
 	pictures.clear();
 	_RefreshTiles();
 }
-
+// #include <QDebug>
 bool Maze::load(const QString &filename)
 {
 	QFile file(filename);
@@ -148,6 +148,25 @@ bool Maze::load(const QString &filename)
 			const int filenameEnd = words[8].lastIndexOf('"');
 			newPictures.add(pictureOrientation, words[8].mid(filenameStart, filenameEnd - filenameStart));
 		}
+		else if (sectionName == "walltextures")
+		{
+			if (!newWalls.readTextures(file))
+				return false;
+		}
+		else if (sectionName == "walltexture")
+		{
+			if (words.size() < 3)
+				return false;
+			bool ok = false;
+			const quint8 id = words[1].toUInt(&ok, 16);
+			if (!ok)
+				return false;
+			const int filenameStart = words[2].indexOf('"') + 1;
+			const int filenameEnd = words[2].lastIndexOf('"');
+			const QString filename = words[2].mid(filenameStart, filenameEnd - filenameStart);
+			newWalls.textures.mapTexture(id, filename);
+			// qDebug() << "Mapping" << id << " --" << filename;
+		}
 
 		// use the new dimensions
 		if (newWidth > 0 && newHeight > 0 && newSize != newWidth*newHeight)
@@ -177,6 +196,21 @@ bool Maze::load(const QString &filename)
 	return true;
 }
 
+// static char EncodeNumberToChar(const quint8 id)
+// {
+	// if (id < 10)
+		// return ('0' + id);
+	// else if (id < 36)
+		// return ('A' + id);
+	// else
+		// return '0';
+// }
+
+static QString EncodeNumberToChar(const quint8 id)
+{
+	return QString::number(id, 16).rightJustified(2, '0');
+}
+
 bool Maze::save(const QString &filename) const
 {
 	QFile file(filename);
@@ -203,6 +237,20 @@ bool Maze::save(const QString &filename) const
 		}
 		out << "\n";
 	}
+	out << "walltextures\n";
+	for (int row = 0; row < walls.height; row++)
+	{
+		for (int col = 0; col < walls.width; col++)
+		{
+			const Walls::TextureIDs & corner = walls.internalTextureIdAt(row, col);
+			out << EncodeNumberToChar(corner.vertex);
+			out << EncodeNumberToChar(corner.east_northeast);
+			out << EncodeNumberToChar(corner.east_southeast);
+			out << EncodeNumberToChar(corner.south_southwest);
+			out << EncodeNumberToChar(corner.south_southeast);
+		}
+		out << "\n";
+	}
 
 	out << "start row " << startingOrientation.tile.y() << " col " << startingOrientation.tile.x() << " side " << startingOrientation.directionToString() << "\n";
 
@@ -212,6 +260,11 @@ bool Maze::save(const QString &filename) const
 	}
 
 	out << pictures;
+
+	for (WallTextures::IdToNameMap::const_iterator it = walls.wallTextures().textureNames().begin(); it != walls.wallTextures().textureNames().end(); ++it)
+	{
+		out << "walltexture " << it.key() << " \"" << it.value() << "\"\n";
+	}
 
 	return true;
 }
@@ -369,6 +422,25 @@ void Maze::endDroppingGoal(bool dropped)
 	dropping.dragging = Dropping::DRAGGING_NONE;
 	if (dropped)
 		addGoal(dropping.orientation.tile);
+}
+
+void Maze::startPaintingWallTexture(const QString &filename)
+{
+	dropping.dragging = Dropping::DRAGGING_WALLTEXTURE;
+	dropping.orientation.tile = QPoint(-1, -1);
+	dropping.filename = filename;
+}
+
+void Maze::continuePaintingWallTexture(const QPoint &p)
+{
+	dropping.orientation = getNearestOrientation(p);
+	if (containsTile(dropping.orientation.tile))
+		walls.paintWall(dropping.orientation, dropping.filename);
+}
+
+void Maze::endPaintingWallTexture(bool dropped)
+{
+	dropping.dragging = Dropping::DRAGGING_NONE;
 }
 
 QPointF Maze::addDisplacement(const QPointF &position, QPointF displacement) const
