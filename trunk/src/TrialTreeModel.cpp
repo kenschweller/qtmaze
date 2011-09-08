@@ -10,7 +10,7 @@ TrialTreeModel::TrialTreeModel(QObject *parent) : QStandardItemModel(parent)
 	// appendRow(new QStandardItem("Test 1"));
 	// appendRow(new QStandardItem("Test 2"));
 	// appendRow(new QStandardItem("Test 3"));
-	
+
 	setColumnCount(1);
 	setHeaderData(0, Qt::Horizontal, "Maze File");
 	setSupportedDragActions(Qt::MoveAction);
@@ -40,7 +40,7 @@ bool TrialTreeModel::dropMimeData(const QMimeData *mimeData, Qt::DropAction acti
 {
 	if (QStandardItemModel::dropMimeData(mimeData, action, row, column, parent))
 		return true;
-	
+
 	if (mimeData->hasUrls())
 	{
 		const QList<QUrl> urls = mimeData->urls();

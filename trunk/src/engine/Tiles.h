@@ -11,20 +11,20 @@ class Tiles
 public:
 	Tiles();
 	~Tiles();
-	
+
 	bool operator==(const Tiles &other) const;
 	bool operator!=(const Tiles &other) const;
-	
+
 	void resize(int w, int h);
 	void clear();
 	void floodFill(int row, int col, const Walls &walls);
 	void floodFill(const QPoint &tile, const Walls &walls);
-	
+
 	bool contains(int row, int col) const;
 	bool contains(const QPoint &tile) const;
 	bool at(int row, int col) const;
 	bool at(const QPoint &tile) const;
-	
+
 	void setContext(QGLWidget *newContext);
 	void drawGrid() const;
 	void drawFloor() const;

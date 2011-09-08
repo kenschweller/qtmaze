@@ -29,11 +29,11 @@ protected slots:
 	void slot_FileSaveAs();
 	void slot_EditPreferences();
 	void slot_ViewFullscreen(bool fullscreen);
-	
+
 	void slot_SwitchToEditingMode();
 	void slot_SwitchToOverviewMode();
 	void slot_SwitchToMouselookMode();
-	
+
 	void slot_Run();
 	void slot_Test();
 	void slot_Cancel();
@@ -49,8 +49,8 @@ protected:
 	QSettings settings;
 	QDir workingDirectory;
 	QToolBar *toolbar;
-	FilePane *browserDock; 
-	ImagePane *imageDock; 
+	FilePane *browserDock;
+	ImagePane *imageDock;
 	MazePane *mazePane;
 	TrialPane *trialPane;
 	DataPane *dataPane;
@@ -58,11 +58,11 @@ protected:
 	NewDialog *newDialog;
 	PrefDialog *prefDialog;
 	QLineEdit *_participantName;
-    QAction *fullscreenAction;
-    QAction *mouselookModeAction;
-    QAction *runTrialsAction;
-    QAction *testAction;
-    QAction *cancelAction;
+	QAction *fullscreenAction;
+	QAction *mouselookModeAction;
+	QAction *runTrialsAction;
+	QAction *testAction;
+	QAction *cancelAction;
 	bool testing;
 };
 

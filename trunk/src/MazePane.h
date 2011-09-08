@@ -11,7 +11,7 @@ class MazePane : public QWidget
 public:
 	MazePane(QWidget *parent = NULL);
 	MazeWidget3D * getMazeWidget3d() {return _mazeWidget3d;}
-	
+
 	void showScrollbars();
 	void hideScrollbars();
 public slots:

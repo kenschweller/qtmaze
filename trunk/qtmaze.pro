@@ -7,6 +7,7 @@ HEADERS = \
 	src/engine/Path.h \
 	src/engine/Orientation.h \
 	src/engine/Pictures.h \
+	src/engine/WallTextures.h \
 	src/engine/Walls.h \
 	src/engine/Tiles.h \
 	src/engine/Maze.h \
@@ -28,6 +29,7 @@ SOURCES = \
 	src/engine/Path.cpp \
 	src/engine/Orientation.cpp \
 	src/engine/Pictures.cpp \
+	src/engine/WallTextures.cpp \
 	src/engine/Walls.cpp \
 	src/engine/Tiles.cpp \
 	src/engine/Maze.cpp \
@@ -58,4 +60,7 @@ macx {
 INCLUDEPATH += /Library/Frameworks/SDL.framework/Headers
 LIBS += -framework SDL
 }
-#QMAKE_LFLAGS += $(shell sdl-config --libs)
+unix:!macs {
+QMAKE_CXXFLAGS += $(shell sdl-config --cflags)
+QMAKE_LFLAGS += $(shell sdl-config --libs)
+}

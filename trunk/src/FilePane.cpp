@@ -16,7 +16,7 @@ FilePane::FilePane(QWidget *parent) : QDockWidget("Maze File Browser", parent), 
 	QStringList filters;
 	filters.append("*.map");
 	fileModel->setNameFilters(filters);
-	
+
 	treeView = new QTreeView(this);
 	treeView->setDragEnabled(true);
 	treeView->setModel(fileModel);
@@ -31,10 +31,10 @@ FilePane::FilePane(QWidget *parent) : QDockWidget("Maze File Browser", parent), 
 			index = fileModel->parent(index);
 		}
 	}
-	
+
 	setWidget(treeView);
 	setFeatures(QDockWidget::DockWidgetClosable);
-	
+
 	connect(treeView, SIGNAL(activated(const QModelIndex &)), this, SLOT(slot_Activated(const QModelIndex &)));
 }
 

@@ -34,7 +34,7 @@ QString Orientation::directionToString() const
 		case Orientation::East: return "east";
 		case Orientation::South: return "south";
 		case Orientation::West: return "west";
-		
+
 		default:
 		return "north";
 	}
@@ -46,7 +46,7 @@ Orientation::Direction Orientation::directionFromString(const QString &name)
 	if (name == "south") return Orientation::South;
 	if (name == "east") return Orientation::East;
 	if (name == "west") return Orientation::West;
-	
+
 	return Orientation::North;
 }
 
@@ -60,28 +60,28 @@ void Orientation::draw() const
 		glVertex3i(tile.x()*GRID_SIZE + HALF_WALL_WIDTH, (tile.y() + 1)*GRID_SIZE - HALF_WALL_WIDTH, -GRID_SIZE);
 		glVertex3i((tile.x() + 1)*GRID_SIZE - HALF_WALL_WIDTH, (tile.y() + 1)*GRID_SIZE - HALF_WALL_WIDTH, -GRID_SIZE);
 		glVertex3i((tile.x() + 1)*GRID_SIZE - HALF_WALL_WIDTH, tile.y()*GRID_SIZE + HALF_WALL_WIDTH, -GRID_SIZE);*/
-		
+
 		case Orientation::North:
 		glVertex3i(tile.x()*GRID_SIZE + HALF_WALL_WIDTH, tile.y()*GRID_SIZE + HALF_WALL_WIDTH, -GRID_SIZE);
 		glVertex3i(tile.x()*GRID_SIZE + HALF_WALL_WIDTH, tile.y()*GRID_SIZE + HALF_WALL_WIDTH + PICTURE_WIDTH, -GRID_SIZE);
 		glVertex3i((tile.x() + 1)*GRID_SIZE - HALF_WALL_WIDTH, tile.y()*GRID_SIZE + HALF_WALL_WIDTH + PICTURE_WIDTH, -GRID_SIZE);
 		glVertex3i((tile.x() + 1)*GRID_SIZE - HALF_WALL_WIDTH, tile.y()*GRID_SIZE + HALF_WALL_WIDTH, -GRID_SIZE);
 		break;
-		
+
 		case Orientation::East:
 		glVertex3i((tile.x() + 1)*GRID_SIZE - HALF_WALL_WIDTH - PICTURE_WIDTH, tile.y()*GRID_SIZE + HALF_WALL_WIDTH, -GRID_SIZE);
 		glVertex3i((tile.x() + 1)*GRID_SIZE - HALF_WALL_WIDTH - PICTURE_WIDTH, (tile.y() + 1)*GRID_SIZE - HALF_WALL_WIDTH, -GRID_SIZE);
 		glVertex3i((tile.x() + 1)*GRID_SIZE - HALF_WALL_WIDTH, (tile.y() + 1)*GRID_SIZE - HALF_WALL_WIDTH, -GRID_SIZE);
 		glVertex3i((tile.x() + 1)*GRID_SIZE - HALF_WALL_WIDTH, tile.y()*GRID_SIZE + HALF_WALL_WIDTH, -GRID_SIZE);
 		break;
-		
+
 		case Orientation::South:
 		glVertex3i(tile.x()*GRID_SIZE + HALF_WALL_WIDTH, (tile.y() + 1)*GRID_SIZE - HALF_WALL_WIDTH - PICTURE_WIDTH, -GRID_SIZE);
 		glVertex3i(tile.x()*GRID_SIZE + HALF_WALL_WIDTH, (tile.y() + 1)*GRID_SIZE - HALF_WALL_WIDTH, -GRID_SIZE);
 		glVertex3i((tile.x() + 1)*GRID_SIZE - HALF_WALL_WIDTH, (tile.y() + 1)*GRID_SIZE - HALF_WALL_WIDTH, -GRID_SIZE);
 		glVertex3i((tile.x() + 1)*GRID_SIZE - HALF_WALL_WIDTH, (tile.y() + 1)*GRID_SIZE - HALF_WALL_WIDTH - PICTURE_WIDTH, -GRID_SIZE);
 		break;
-		
+
 		case Orientation::West:
 		glVertex3i(tile.x()*GRID_SIZE + HALF_WALL_WIDTH, tile.y()*GRID_SIZE + HALF_WALL_WIDTH, -GRID_SIZE);
 		glVertex3i(tile.x()*GRID_SIZE + HALF_WALL_WIDTH, (tile.y() + 1)*GRID_SIZE - HALF_WALL_WIDTH, -GRID_SIZE);

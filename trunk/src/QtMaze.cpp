@@ -47,14 +47,16 @@ QtMaze::QtMaze(QWidget *parent) : QMainWindow(parent), settings(QSettings::UserS
 
 	newDialog = new NewDialog(settings, this);
 	prefDialog = new PrefDialog(settings, this);
-	
+
 	connect(prefDialog, SIGNAL(deadZoneChanged(double)), mazeWidget3d, SLOT(slot_SetJoystickDeadZone(double)));
 	connect(prefDialog, SIGNAL(turningSpeedChanged(double)), mazeWidget3d, SLOT(slot_SetJoystickTurningSpeed(double)));
 	connect(prefDialog, SIGNAL(walkingSpeedChanged(double)), mazeWidget3d, SLOT(slot_SetJoystickWalkingSpeed(double)));
 	prefDialog->emitChanged(); // HACK, forces the prefDialog to emit signals to initially set the mazeWidget3d settings
-	
+
 	connect(trialPane, SIGNAL(canRunTrials(bool)), runTrialsAction, SLOT(setEnabled(bool)));
 	connect(dataPane, SIGNAL(logActivated(const QString &, const QString &)), this, SLOT(slot_LoadLog(const QString &, const QString &)));
+
+	connect(imageDock, SIGNAL(wallTextureChanged(const QString &)), mazeWidget3d, SLOT(slot_SetCurrentWallTexture(const QString &)));
 }
 
 QtMaze::~QtMaze()
@@ -107,9 +109,19 @@ void QtMaze::_PopulateToolbars()
 	QActionGroup * const modeGroup = new QActionGroup(this);
 	modeGroup->setExclusive(true);
 	toolbar->addSeparator();
-	QAction * const editingModeAction = toolbar->addAction("Editing Mode", this, SLOT(slot_SwitchToEditingMode()));
-	QAction * const overviewModeAction = toolbar->addAction("Overview Mode", this, SLOT(slot_SwitchToOverviewMode()));
-	mouselookModeAction = toolbar->addAction("Mouselook Mode", this, SLOT(slot_SwitchToMouselookMode()));
+	QAction * const wallPlacingModeAction = toolbar->addAction("Place Walls", mazeWidget3d, SLOT(slot_SwitchToWallPlacingMode()));
+	QAction * const wallPaintingModeAction = toolbar->addAction("Paint Walls", mazeWidget3d, SLOT(slot_SwitchToWallPaintingMode()));
+	wallPlacingModeAction->setCheckable(true);
+	wallPaintingModeAction->setCheckable(true);
+	QActionGroup * const wallModeGroup = new QActionGroup(this);
+	wallModeGroup->setExclusive(true);
+	wallModeGroup->addAction(wallPlacingModeAction);
+	wallModeGroup->addAction(wallPaintingModeAction);
+	wallPlacingModeAction->setChecked(true);
+	toolbar->addSeparator();
+	QAction * const editingModeAction = toolbar->addAction("Top-Down View", this, SLOT(slot_SwitchToEditingMode()));
+	QAction * const overviewModeAction = toolbar->addAction("Perspective View", this, SLOT(slot_SwitchToOverviewMode()));
+	mouselookModeAction = toolbar->addAction("First Person View", this, SLOT(slot_SwitchToMouselookMode()));
 	toolbar->addSeparator();
 	editingModeAction->setCheckable(true);
 	overviewModeAction->setCheckable(true);
@@ -118,18 +130,18 @@ void QtMaze::_PopulateToolbars()
 	modeGroup->addAction(overviewModeAction);
 	modeGroup->addAction(mouselookModeAction);
 	editingModeAction->setChecked(true);
-	
+
 	toolbar->addWidget(_participantName = new QLineEdit(this));
 	_participantName->setFixedWidth(200);
 	_participantName->setValidator(new QRegExpValidator(QRegExp("[A-Za-z0-9_ ]*"), this));
 	_participantName->setPlaceholderText("[test subject name]");
-	
+
 	runTrialsAction = toolbar->addAction("Run Trials", this, SLOT(slot_Run()));
 	testAction = toolbar->addAction("Test Map (no logging)", this, SLOT(slot_Test()));
 	cancelAction = toolbar->addAction("Cancel", this, SLOT(slot_Cancel()));
 	runTrialsAction->setEnabled(false);
 	cancelAction->setEnabled(false);
-	
+
 	addToolBar(toolbar);
 
 }
@@ -247,7 +259,7 @@ void QtMaze::slot_Run()
 	const QString nextFilename = trialPane->getNextMaze();
 	if (nextFilename.size() == 0)
 		return;
-	
+
 	mazeWidget3d->setParticipantName(_participantName->text());
 	mazeWidget3d->setParticipating(true);
 	mazeWidget3d->open(nextFilename, true);
@@ -328,7 +340,7 @@ void QtMaze::slot_LoadLog(const QString &logFilename, const QString &mazeFilenam
 		msg.setText("Error opening maze file!");
 		msg.exec();
 	}
-	
+
 	Path path;
 	path.load(logFilename);
 	mazeWidget3d->addPath(path);

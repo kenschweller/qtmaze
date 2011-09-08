@@ -12,7 +12,7 @@ class PrefDialog : public QDialog
 public:
 	PrefDialog(QSettings &settings, QWidget *parent = NULL);
 	~PrefDialog();
-	
+
 	void saveSettings(QSettings &settings);
 	void emitChanged();
 signals:

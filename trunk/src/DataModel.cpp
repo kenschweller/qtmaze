@@ -13,11 +13,11 @@ DataModel::DataModel(QObject *parent) : QStandardItemModel(parent)
 	setHeaderData(1, Qt::Horizontal, "Subject");
 	setHeaderData(2, Qt::Horizontal, "Maze");
 	setHeaderData(3, Qt::Horizontal, "Log File");
-	
+
 	watcher = new QFileSystemWatcher(QStringList("logs/"), this);
 	connect(watcher, SIGNAL(directoryChanged(const QString &)), this, SLOT(slot_DirectoryChanged(const QString &)));
 	connect(watcher, SIGNAL(fileChanged(const QString &)), this, SLOT(slot_FileChanged(const QString &)));
-	
+
 	_CrawlDirectory(QDir("logs/"));
 }
 
@@ -66,25 +66,25 @@ void DataModel::_AddLogFile(const QString &filename)
 	const QFileInfo info(filename);
 	if (logfiles.contains(info.absoluteFilePath()))
 		return;
-	
+
 	QFile file(filename);
 	if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
 		return;
-	
+
 	const QString mazeHeader    = "# Maze: ";
 	const QString subjectHeader = "# Subject: ";
 	const QString dateHeader    = "# Date: ";
-	
+
 	QString subjectName;
 	QString mazeName;
 	QDateTime timestamp;
-	
+
 	while (!file.atEnd())
 	{
 		const QString line = file.readLine().trimmed();
 		if (!line.startsWith('#'))
 			break;
-		
+
 		if (line.startsWith(mazeHeader))
 			mazeName = line.mid(mazeHeader.size() + 1, line.size() - mazeHeader.size() - 2);
 		else if (line.startsWith(subjectHeader))
@@ -92,7 +92,7 @@ void DataModel::_AddLogFile(const QString &filename)
 		else if (line.startsWith(dateHeader))
 			timestamp = QDateTime::fromString(line.mid(dateHeader.size()));
 	}
-	
+
 	if (subjectName.size() > 0 && mazeName.size() > 0 && timestamp.isValid())
 	{
 		QList<QStandardItem*> newRow;

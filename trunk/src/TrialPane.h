@@ -11,7 +11,7 @@ class TrialPane : public QDockWidget
 	Q_OBJECT
 public:
 	TrialPane(QWidget *parent = NULL);
-	
+
 	void restart();
 	QString getNextMaze();
 signals:
@@ -21,7 +21,7 @@ protected slots:
 	void slot_Open();
 	void slot_Save();
 	void slot_SaveAs();
-	
+
 	void slot_ModelChanged();
 protected:
 	void _Save(const QString &filename);

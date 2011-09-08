@@ -34,11 +34,11 @@ void TrialTreeView::contextMenuEvent(QContextMenuEvent *event)
 		QTreeView::contextMenuEvent(event);
 		return;
 	}
-	
+
 	QMenu menu;
 	QAction * const removeAction = menu.addAction("Remove");
 	QAction * const result = menu.exec(event->globalPos());
-	
+
 	if (result == removeAction)
 	{
 		model()->removeRow(clickedIndex.row(), model()->parent(clickedIndex));

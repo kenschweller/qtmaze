@@ -13,7 +13,7 @@ TrialPane::TrialPane(QWidget *parent) : QDockWidget("Maze Queue", parent)
 {
 	QWidget * const dummy = new QWidget(this);
 	QGridLayout * const grid = new QGridLayout(dummy);
-	
+
 	TrialTreeView * const treeView = new TrialTreeView(dummy);
 	treeView->setModel(_model = new TrialTreeModel(this));\
 	QPushButton * const newButton = new QPushButton("New", this);
@@ -25,19 +25,19 @@ TrialPane::TrialPane(QWidget *parent) : QDockWidget("Maze Queue", parent)
 	grid->addWidget(saveButton, 0, 2);
 	grid->addWidget(saveAsButton, 0, 3);
 	grid->addWidget(treeView, 1, 0, 1, 4);
-	
+
 	setWidget(dummy);
 	setFeatures(QDockWidget::DockWidgetClosable);
-	
+
 	connect(newButton, SIGNAL(clicked()), this, SLOT(slot_New()));
 	connect(openButton, SIGNAL(clicked()), this, SLOT(slot_Open()));
 	connect(saveButton, SIGNAL(clicked()), this, SLOT(slot_Save()));
 	connect(saveAsButton, SIGNAL(clicked()), this, SLOT(slot_SaveAs()));
-	
+
 	connect(_model, SIGNAL(rowsInserted(const QModelIndex &, int, int)), this, SLOT(slot_ModelChanged()));
 	connect(_model, SIGNAL(rowsMoved(const QModelIndex &, int, int, const QModelIndex, int)), this, SLOT(slot_ModelChanged()));
 	connect(_model, SIGNAL(rowsRemoved(const QModelIndex &, int, int)), this, SLOT(slot_ModelChanged()));
-	
+
 	saveButton->setEnabled(false);
 }
 
@@ -59,7 +59,7 @@ void TrialPane::slot_Open()
 	const QString filename = QFileDialog::getOpenFileName(this, "Open Maze Queue...", "", "Queue Files (*.run)");
 	if (filename.size() == 0)
 		return;
-	
+
 	QFile file(filename);
 	if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
 	{
@@ -68,15 +68,15 @@ void TrialPane::slot_Open()
 		msg.exec();
 		return;
 	}
-	
+
 	slot_New();
-	
+
 	while (!file.atEnd())
 	{
 		const QString line = file.readLine().trimmed();
 		_model->appendMazeFile(line);
 	}
-	
+
 	_listFilename = filename;
 }
 
@@ -107,7 +107,7 @@ void TrialPane::_Save(const QString &filename)
 		return;
 		// return false;
 	}
-	
+
 	QTextStream out(&file);
 	{
 		QModelIndex current = _model->index(0, 0);
@@ -134,7 +134,7 @@ QString TrialPane::getNextMaze()
 {
 	if (!_nextMaze.isValid())
 		return "";
-	
+
 	QString filename;
 	bool exists = false;
 	do
@@ -150,9 +150,9 @@ QString TrialPane::getNextMaze()
 			msg.exec();
 		}
 	} while (!exists && _nextMaze.isValid());
-	
+
 	if (!exists)
 		return "";
-	
+
 	return filename;
 }
