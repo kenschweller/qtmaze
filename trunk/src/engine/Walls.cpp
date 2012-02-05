@@ -31,6 +31,7 @@ void Walls::resize(int w, int h)
 	height = h + 1;
 	walls.resize(width*height);
 	texturemap.resize(width*height);
+	heightmap.resize(width*height);
 }
 
 void Walls::clear()
@@ -38,6 +39,14 @@ void Walls::clear()
 	walls.fill(NoWalls);
 	texturemap.fill(TextureIDs());
 	textures.clear();
+
+	TextureIDs tmp;
+	tmp.vertex = 10;
+	tmp.east_northeast = 10;
+	tmp.east_southeast = 10;
+	tmp.south_southwest = 10;
+	tmp.south_southeast = 10;
+	heightmap.fill(tmp);
 }
 
 bool Walls::read(QFile &file)
@@ -103,6 +112,17 @@ bool Walls::readTextures(QFile &file)
 		}
 	}
 
+	return true;
+}
+
+bool Walls::readHeightmap(QFile &file)
+{
+	for (int row = 0; row < height; row++)
+	{
+		if (!file.canReadLine())
+			return false;
+		const QString line = file.readLine().trimmed();
+	}
 	return true;
 }
 
@@ -261,25 +281,58 @@ void Walls::paintWall(const Orientation &p, const QString &filename)
 	{
 		case Orientation::North:
 		texturemap[p.tile.y()*width+p.tile.x()].east_southeast = textureId;
+		texturemap[p.tile.y()*width+p.tile.x()].vertex = textureId;
 		texturemap[p.tile.y()*width+p.tile.x()+1].vertex = textureId;
 		break;
 
 		case Orientation::South:
 		texturemap[(p.tile.y()+1)*width+p.tile.x()].east_northeast = textureId;
-		texturemap[p.tile.y()*width+p.tile.x()+1].vertex = textureId;
+		texturemap[(p.tile.y()+1)*width+p.tile.x()].vertex = textureId;
+		texturemap[(p.tile.y()+1)*width+p.tile.x()+1].vertex = textureId;
 		break;
 
 		case Orientation::East:
 		texturemap[p.tile.y()*width+p.tile.x()+1].south_southwest = textureId;
-		texturemap[(p.tile.y()+1)*width+p.tile.x()].vertex = textureId;
+		texturemap[p.tile.y()*width+p.tile.x()+1].vertex = textureId;
+		texturemap[(p.tile.y()+1)*width+p.tile.x()+1].vertex = textureId;
 		break;
 
 		case Orientation::West:
 		texturemap[p.tile.y()*width+p.tile.x()].south_southeast = textureId;
+		texturemap[p.tile.y()*width+p.tile.x()].vertex = textureId;
 		texturemap[(p.tile.y()+1)*width+p.tile.x()].vertex = textureId;
 		break;
 	}
-	texturemap[p.tile.y()*width+p.tile.x()].vertex = textureId;
+}
+
+void Walls::setWallHeight(const Orientation &p, const int newHeight)
+{
+	switch (p.direction)
+	{
+		case Orientation::North:
+		heightmap[p.tile.y()*width+p.tile.x()].east_southeast = newHeight;
+		heightmap[p.tile.y()*width+p.tile.x()].vertex = newHeight;
+		heightmap[p.tile.y()*width+p.tile.x()+1].vertex = newHeight;
+		break;
+
+		case Orientation::South:
+		heightmap[(p.tile.y()+1)*width+p.tile.x()].east_northeast = newHeight;
+		heightmap[(p.tile.y()+1)*width+p.tile.x()].vertex = newHeight;
+		heightmap[(p.tile.y()+1)*width+p.tile.x()+1].vertex = newHeight;
+		break;
+
+		case Orientation::East:
+		heightmap[p.tile.y()*width+p.tile.x()+1].south_southwest = newHeight;
+		heightmap[p.tile.y()*width+p.tile.x()+1].vertex = newHeight;
+		heightmap[(p.tile.y()+1)*width+p.tile.x()+1].vertex = newHeight;
+		break;
+
+		case Orientation::West:
+		heightmap[p.tile.y()*width+p.tile.x()].south_southeast = newHeight;
+		heightmap[p.tile.y()*width+p.tile.x()].vertex = newHeight;
+		heightmap[(p.tile.y()+1)*width+p.tile.x()].vertex = newHeight;
+		break;
+	}
 }
 
 void Walls::setContext(QGLWidget *newContext)

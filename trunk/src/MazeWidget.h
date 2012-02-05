@@ -52,6 +52,7 @@ public slots:
 	void slot_SwitchToMouselookMode();
 	void slot_SwitchToWallPlacingMode();
 	void slot_SwitchToWallPaintingMode();
+	void slot_SwitchToWallHeightSettingMode();
 
 	void slot_SetVerticalOffset(int x);
 	void slot_SetHorizontalOffset(int x);
@@ -61,6 +62,7 @@ public slots:
 	void slot_SetJoystickTurningSpeed(double turningSpeed);
 
 	void slot_SetCurrentWallTexture(const QString &filename);
+	void slot_SetCurrentWallHeight(int newHeight);
 protected slots:
 	void slot_Advance();
 	void slot_SoundFinished();
@@ -108,6 +110,7 @@ protected:
 		OCCUPATION_NONE,
 		OCCUPATION_DRAWING,
 		OCCUPATION_PAINTING,
+		OCCUPATION_SETTINGWALLHEIGHT,
 		OCCUPATION_MOUSELOOK,
 		OCCUPATION_RESIZING
 	} occupation;
@@ -158,7 +161,13 @@ protected:
 	double joystickWalkingSpeed;
 	double joystickTurningSpeed;
 	QString currentWallTextureFilename;
-	bool paintingWallsMode;
+	int currentWallHeight;
+	enum BulldozingMode
+	{
+		BULLDOZING_PLACING_WALLS,
+		BULLDOZING_PAINTING_WALLS,
+		BULLDOZING_SETTING_WALL_HEIGHT
+	} paintingWallsMode;
 };
 
 #endif

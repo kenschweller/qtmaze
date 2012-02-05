@@ -12,6 +12,7 @@
 #include <QSound>
 #include <QDir>
 #include <QLineF>
+#include <QDebug>
 
 #include <cmath>
 
@@ -73,7 +74,7 @@ MazeWidget3D::MazeWidget3D(QWidget *parent)
 	displayListMaze(0),
 	goalSound("data/sounds/goal.wav"),
 	playing(false), won(false),
-	joystickDeadZone(0.05), joystickWalkingSpeed(1.0), joystickTurningSpeed(1.0), paintingWallsMode(false)
+	joystickDeadZone(0.05), joystickWalkingSpeed(1.0), joystickTurningSpeed(1.0), currentWallHeight(10), paintingWallsMode(BULLDOZING_PLACING_WALLS)
 {
 	_participating = false;
 	camera = maze.getStartingCamera();
@@ -226,12 +227,18 @@ void MazeWidget3D::slot_SwitchToMouselookMode()
 
 void MazeWidget3D::slot_SwitchToWallPlacingMode()
 {
-	paintingWallsMode = false;
+	paintingWallsMode = BULLDOZING_PLACING_WALLS;
 }
 
 void MazeWidget3D::slot_SwitchToWallPaintingMode()
 {
-	paintingWallsMode = true;
+	paintingWallsMode = BULLDOZING_PAINTING_WALLS;
+}
+
+void MazeWidget3D::slot_SwitchToWallHeightSettingMode()
+{
+	qDebug() << "Switched to height setting mode";
+	paintingWallsMode = BULLDOZING_SETTING_WALL_HEIGHT;
 }
 
 void MazeWidget3D::restart(bool pplaying)
@@ -570,7 +577,7 @@ void MazeWidget3D::mousePressEvent(QMouseEvent *event)
 	}
 
 	normal_click:
-	if (paintingWallsMode)
+	if (paintingWallsMode == BULLDOZING_PAINTING_WALLS)
 	{
 		occupation = OCCUPATION_PAINTING;
 		if (currentWallTextureFilename.size() == 0) // TODO necessary?
@@ -579,7 +586,7 @@ void MazeWidget3D::mousePressEvent(QMouseEvent *event)
 		maze.continuePaintingWallTexture(mapPoint);
 		update();
 	}
-	else
+	else if (paintingWallsMode == BULLDOZING_PLACING_WALLS)
 	{
 		occupation = OCCUPATION_DRAWING;
 		drawPoints.clear();
@@ -588,6 +595,13 @@ void MazeWidget3D::mousePressEvent(QMouseEvent *event)
 			lastTilePos = maze.getNearestTile(mapPoint);
 		else
 			lastTilePos = maze.getNearestVertex(mapPoint);
+	}
+	else if (paintingWallsMode == BULLDOZING_SETTING_WALL_HEIGHT)
+	{
+		occupation = OCCUPATION_SETTINGWALLHEIGHT;
+		maze.startSettingWallHeight(currentWallHeight);
+		maze.continueSettingWallHeight(mapPoint);
+		update();
 	}
 }
 
@@ -605,6 +619,11 @@ void MazeWidget3D::mouseReleaseEvent(QMouseEvent *event)
 	else if (occupation == OCCUPATION_PAINTING)
 	{
 		maze.endPaintingWallTexture(true);
+		occupation = OCCUPATION_NONE;
+	}
+	else if (occupation == OCCUPATION_SETTINGWALLHEIGHT)
+	{
+		maze.endSettingWallHeight(true);
 		occupation = OCCUPATION_NONE;
 	}
 }
@@ -971,6 +990,11 @@ void MazeWidget3D::slot_SetCurrentWallTexture(const QString &filename)
 {
 	// qDebug() << "MazeWidget3D::slot_SetCurrentWallTexture: " << filename;
 	currentWallTextureFilename = filename;
+}
+
+void MazeWidget3D::slot_SetCurrentWallHeight(int newHeight)
+{
+	currentWallHeight = qBound(0, newHeight, 10);
 }
 
 void MazeWidget3D::_SetupModelMatrix()

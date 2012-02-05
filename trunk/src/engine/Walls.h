@@ -56,6 +56,7 @@ public:
 	void clear();
 	bool read(QFile &file);
 	bool readTextures(QFile &file);
+	bool readHeightmap(QFile &file);
 
 	bool contains(int row, int col) const;
 	bool contains(const QPoint &vertex) const;
@@ -68,6 +69,7 @@ public:
 	void removeWallBetweenVertices(const QPoint &a, const QPoint &b);
 	void removeWallBetweenTiles(const QPoint &a, const QPoint &b);
 	void paintWall(const Orientation &p, const QString &filename);
+	void setWallHeight(const Orientation &p, const int newHeight);
 
 	void setContext(QGLWidget *newContext);
 	void draw() const;
@@ -83,6 +85,7 @@ protected:
 	int height;
 	QVector<int> walls;
 	QVector<TextureIDs> texturemap;
+	QVector<TextureIDs> heightmap;
 	WallTextures textures;
 
 	friend class Maze;
