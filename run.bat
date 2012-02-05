@@ -1,1 +1,1 @@
-@cls && make && Release\QtMaze.exe
+@cls && qmake && make && QtMaze.exe

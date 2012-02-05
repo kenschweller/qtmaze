@@ -48,6 +48,19 @@ SOURCES = \
 	src/TrialPane.cpp \
 	src/QtMaze.cpp \
 	src/main.cpp
+
+Release:DESTDIR = ./
+Release:OBJECTS_DIR = release/.obj
+Release:MOC_DIR = release/.moc
+Release:RCC_DIR = release/.rcc
+Release:UI_DIR = release/.ui
+
+Debug:DESTDIR = debug/
+Debug:OBJECTS_DIR = debug/.obj
+Debug:MOC_DIR = debug/.moc
+Debug:RCC_DIR = debug/.rcc
+Debug:UI_DIR = debug/.ui
+
 win32 {
 CONFIG += console
 QMAKE_CXXFLAGS += $(shell sdl-config --cflags)
