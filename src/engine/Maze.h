@@ -65,6 +65,10 @@ public:
 	void continuePaintingWallTexture(const QPoint &p);
 	void endPaintingWallTexture(bool dropped);
 
+	void startSettingWallHeight(int newHeight);
+	void continueSettingWallHeight(const QPoint &p);
+	void endSettingWallHeight(bool dropped);
+
 	/*void startResizing();
 	void moveResizing(const QPoint &p);
 	void stopResizing();*/
@@ -90,7 +94,7 @@ protected:
 	class Dropping
 	{
 	public:
-		Dropping() : dragging(DRAGGING_NONE) {}
+		Dropping() : dragging(DRAGGING_NONE), wall_height(10) {}
 		Orientation orientation;
 		QString filename;
 		enum DraggingWhich
@@ -98,8 +102,10 @@ protected:
 			DRAGGING_NONE,
 			DRAGGING_IMAGE,
 			DRAGGING_GOAL,
-			DRAGGING_WALLTEXTURE
+			DRAGGING_WALLTEXTURE,
+			DRAGGING_WALLHEIGHT
 		} dragging;
+		int wall_height;
 	} dropping;
 
 	QGLWidget *context;

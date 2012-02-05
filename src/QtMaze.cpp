@@ -111,12 +111,15 @@ void QtMaze::_PopulateToolbars()
 	toolbar->addSeparator();
 	QAction * const wallPlacingModeAction = toolbar->addAction("Place Walls", mazeWidget3d, SLOT(slot_SwitchToWallPlacingMode()));
 	QAction * const wallPaintingModeAction = toolbar->addAction("Paint Walls", mazeWidget3d, SLOT(slot_SwitchToWallPaintingMode()));
+	QAction * const wallHeightSettingModeAction = toolbar->addAction("Set Wall Height", mazeWidget3d, SLOT(slot_SwitchToWallHeightSettingMode()));
 	wallPlacingModeAction->setCheckable(true);
 	wallPaintingModeAction->setCheckable(true);
+	wallHeightSettingModeAction->setCheckable(true);
 	QActionGroup * const wallModeGroup = new QActionGroup(this);
 	wallModeGroup->setExclusive(true);
 	wallModeGroup->addAction(wallPlacingModeAction);
 	wallModeGroup->addAction(wallPaintingModeAction);
+	wallModeGroup->addAction(wallHeightSettingModeAction);
 	wallPlacingModeAction->setChecked(true);
 	toolbar->addSeparator();
 	QAction * const editingModeAction = toolbar->addAction("Top-Down View", this, SLOT(slot_SwitchToEditingMode()));

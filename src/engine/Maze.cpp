@@ -153,6 +153,11 @@ bool Maze::load(const QString &filename)
 			if (!newWalls.readTextures(file))
 				return false;
 		}
+		else if (sectionName == "wallheights")
+		{
+			if (!newWalls.readHeightmap(file))
+				return false;
+		}
 		else if (sectionName == "walltexture")
 		{
 			if (words.size() < 3)
@@ -439,6 +444,25 @@ void Maze::continuePaintingWallTexture(const QPoint &p)
 }
 
 void Maze::endPaintingWallTexture(bool dropped)
+{
+	dropping.dragging = Dropping::DRAGGING_NONE;
+}
+
+void Maze::startSettingWallHeight(int newHeight)
+{
+	dropping.dragging = Dropping::DRAGGING_WALLHEIGHT;
+	dropping.orientation.tile = QPoint(-1, -1);
+	dropping.wall_height = qBound(0, newHeight, 10);
+}
+
+void Maze::continueSettingWallHeight(const QPoint &p)
+{
+	dropping.orientation = getNearestOrientation(p);
+	if (containsTile(dropping.orientation.tile))
+		walls.setWallHeight(dropping.orientation, dropping.wall_height);
+}
+
+void Maze::endSettingWallHeight(bool dropped)
 {
 	dropping.dragging = Dropping::DRAGGING_NONE;
 }
