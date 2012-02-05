@@ -4,7 +4,7 @@
 #include <QDialog>
 class QSettings;
 #include <QSpinBox>
-#include <QTextEdit>
+// #include <QTextEdit>
 
 class NewDialog : public QDialog
 {
@@ -15,7 +15,7 @@ public:
 
 	QSpinBox *_width;
 	QSpinBox *_height;
-	QTextEdit *_description;
+	// QTextEdit *_description;
 };
 
 #endif

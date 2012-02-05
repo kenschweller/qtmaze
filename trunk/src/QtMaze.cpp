@@ -74,14 +74,14 @@ void QtMaze::_CreateMenus()
 	toolbar->addAction(fileMenu->addAction(style()->standardIcon(QStyle::SP_DialogOpenButton), "Open", this, SLOT(slot_FileOpen()), QKeySequence("Ctrl+O")));
 	toolbar->addAction(fileMenu->addAction(style()->standardIcon(QStyle::SP_DialogSaveButton), "Save", this, SLOT(slot_FileSave()), QKeySequence("Ctrl+S")));
 	fileMenu->addAction("Save As...", this, SLOT(slot_FileSaveAs()), QKeySequence("Ctrl+Alt+S"));
-	fileMenu->addAction("Close");
+	// fileMenu->addAction("Close");
 	fileMenu->addSeparator();
 	fileMenu->addAction("Exit", this, SLOT(close()));
 
 	QMenu * const editMenu = menuBar()->addMenu("&Edit");
-	editMenu->addAction("Undo");
-	editMenu->addAction("Redo");
-	editMenu->addSeparator();
+	// editMenu->addAction("Undo");
+	// editMenu->addAction("Redo");
+	// editMenu->addSeparator();
 	editMenu->addAction("Preferences", this, SLOT(slot_EditPreferences()));
 
 	QMenu * const viewMenu = menuBar()->addMenu("&View");
@@ -163,7 +163,7 @@ void QtMaze::slot_FileNew()
 {
 	if (newDialog->exec() == QDialog::Accepted)
 	{
-		mazeWidget3d->reset(newDialog->_width->value(), newDialog->_height->value(), newDialog->_description->document()->toPlainText());
+		mazeWidget3d->reset(newDialog->_width->value(), newDialog->_height->value()/*, newDialog->_description->document()->toPlainText()*/);
 	}
 }
 

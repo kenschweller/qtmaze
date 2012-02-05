@@ -23,7 +23,7 @@ public:
 	MazeWidget3D(QWidget *parent = NULL);
 	~MazeWidget3D();
 
-	void reset(int width, int height, const QString description = QString());
+	void reset(int width, int height/*, const QString description = QString()*/);
 	bool save(const QString &filename);
 	QString getFilename() const;
 	QSize getMazeSize() const;

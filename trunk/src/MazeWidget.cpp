@@ -135,7 +135,7 @@ void MazeWidget3D::setParticipating(bool enabled)
 	_participating = enabled;
 }
 
-void MazeWidget3D::reset(int width, int height, const QString description)
+void MazeWidget3D::reset(int width, int height/*, const QString description*/)
 {
 	_filename = "";
 	maze.reset(width, height);
@@ -195,7 +195,7 @@ void MazeWidget3D::slot_SwitchToEditingMode()
 		mode = MODE_EDITING;
 		_SetupProjectionMatrix();
 		_SetupModelMatrix();
-		updateGL();
+		update();
 		setMouseTracking(true);
 	}
 }
@@ -207,7 +207,7 @@ void MazeWidget3D::slot_SwitchToOverviewMode()
 		mode = MODE_OVERVIEW;
 		_SetupProjectionMatrix();
 		_SetupModelMatrix();
-		updateGL();
+		update();
 		setMouseTracking(false);
 	}
 }
@@ -219,7 +219,7 @@ void MazeWidget3D::slot_SwitchToMouselookMode()
 		mode = MODE_MOUSELOOK;
 		_SetupProjectionMatrix();
 		_SetupModelMatrix();
-		updateGL();
+		update();
 		setMouseTracking(false);
 	}
 }
@@ -246,7 +246,7 @@ void MazeWidget3D::restart(bool pplaying)
 	camera = maze.getStartingCamera();
 	_SetupProjectionMatrix();
 	_SetupModelMatrix();
-	updateGL();
+	update();
 	emit(zoomChanged());
 	if (pplaying)
 		paths.clear();
@@ -255,13 +255,13 @@ void MazeWidget3D::restart(bool pplaying)
 void MazeWidget3D::addPath(const Path &path)
 {
 	paths.push_back(path);
-	updateGL();
+	update();
 }
 
 void MazeWidget3D::clearPaths()
 {
 	paths.clear();
-	updateGL();
+	update();
 }
 
 QVector3D MazeWidget3D::_GetKeyboardDirection()
@@ -329,7 +329,7 @@ void MazeWidget3D::slot_Advance()
 
 	_SetupProjectionMatrix();
 	_SetupModelMatrix();
-	updateGL();
+	update();
 
 	if (playing && maze.mapPointInGoalRadius(camera.position.toPoint()))
 	{
@@ -337,7 +337,7 @@ void MazeWidget3D::slot_Advance()
 		playing = false;
 		won = true;
 		logger.end();
-		updateGL();
+		update();
 		QTimer::singleShot(1000, this, SLOT(slot_SoundFinished()));
 	}
 }
@@ -357,7 +357,7 @@ void MazeWidget3D::dragEnterEvent(QDragEnterEvent *event)
 
 		const Orientation orientation = maze.getNearestOrientation(mapPoint);
 		maze.setStartingOrientation(orientation);
-		updateGL();
+		update();
 		return;
 	}
 	else if (event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist"))
@@ -374,7 +374,7 @@ void MazeWidget3D::dragEnterEvent(QDragEnterEvent *event)
 			event->acceptProposedAction();
 			maze.startDroppingImage(filename);
 			maze.moveDroppingImage(mapPoint);
-			updateGL();
+			update();
 		}
 	}
 	else if (event->mimeData()->hasFormat("application/x-qtmaze-newgoal"))
@@ -382,7 +382,7 @@ void MazeWidget3D::dragEnterEvent(QDragEnterEvent *event)
 		event->acceptProposedAction();
 		maze.startDroppingGoal();
 		maze.moveDroppingGoal(mapPoint);
-		updateGL();
+		update();
 	}
 	else if (event->mimeData()->hasFormat("application/x-qtmaze-cameraposition"))
 	{
@@ -394,7 +394,7 @@ void MazeWidget3D::dragLeaveEvent(QDragLeaveEvent *event)
 {
 	maze.endDroppingImage(false);
 	maze.endDroppingGoal(false);
-	updateGL();
+	update();
 }
 
 void MazeWidget3D::dragMoveEvent(QDragMoveEvent *event)
@@ -404,25 +404,25 @@ void MazeWidget3D::dragMoveEvent(QDragMoveEvent *event)
 	{
 		const Orientation orientation = maze.getNearestOrientation(mapPoint);
 		maze.setStartingOrientation(orientation);
-		updateGL();
+		update();
 		return;
 	}
 	else if (event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist"))
 	{
 		// printf("Drag moving to (%i, %i)\n", event->pos().x(), event->pos().y());
 		maze.moveDroppingImage(mapPoint);
-		updateGL();
+		update();
 	}
 	else if (event->mimeData()->hasFormat("application/x-qtmaze-cameraposition"))
 	{
 		camera.position.setX(mapPoint.x());
 		camera.position.setY(mapPoint.y());
-		updateGL();
+		update();
 	}
 	else if (event->mimeData()->hasFormat("application/x-qtmaze-newgoal"))
 	{
 		maze.moveDroppingGoal(mapPoint);
-		updateGL();
+		update();
 	}
 }
 
@@ -432,25 +432,25 @@ void MazeWidget3D::dropEvent(QDropEvent *event)
 	if (event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist"))
 	{
 		maze.endDroppingImage(true);
-		updateGL();
+		update();
 	}
 	else if (event->mimeData()->hasFormat("application/x-qtmaze-startingorientation"))
 	{
 		const Orientation orientation = maze.getNearestOrientation(mapPoint);
 		maze.setStartingOrientation(orientation);
-		updateGL();
+		update();
 	}
 	else if (event->mimeData()->hasFormat("application/x-qtmaze-newgoal"))
 	{
 		maze.moveDroppingGoal(mapPoint);
 		maze.endDroppingGoal(true);
-		updateGL();
+		update();
 	}
 	else if (event->mimeData()->hasFormat("application/x-qtmaze-cameraposition"))
 	{
 		camera.position.setX(mapPoint.x());
 		camera.position.setY(mapPoint.y());
-		updateGL();
+		update();
 	}
 }
 
@@ -477,12 +477,12 @@ void MazeWidget3D::contextMenuEvent(QContextMenuEvent *event)
 	if (selected == goalAction)
 	{
 		maze.addGoal(tile);
-		updateGL();
+		update();
 	}
 	else if (selected == startAction)
 	{
 		maze.setStartingOrientation(orientation);
-		updateGL();
+		update();
 	}
 	else if (selected == placeAction)
 	{
@@ -490,7 +490,7 @@ void MazeWidget3D::contextMenuEvent(QContextMenuEvent *event)
 		camera.position.setY(mapPoint.y());
 		_SetupModelMatrix();
 		_SetupProjectionMatrix();
-		updateGL();
+		update();
 	}
 }
 
@@ -577,7 +577,7 @@ void MazeWidget3D::mousePressEvent(QMouseEvent *event)
 			currentWallTextureFilename = "wall.jpg";
 		maze.startPaintingWallTexture(currentWallTextureFilename);
 		maze.continuePaintingWallTexture(mapPoint);
-		updateGL();
+		update();
 	}
 	else
 	{
@@ -599,7 +599,7 @@ void MazeWidget3D::mouseReleaseEvent(QMouseEvent *event)
 	if (occupation == OCCUPATION_DRAWING)
 	{
 		drawPoints.clear();
-		updateGL();
+		update();
 		occupation = OCCUPATION_NONE;
 	}
 	else if (occupation == OCCUPATION_PAINTING)
@@ -625,7 +625,7 @@ void MazeWidget3D::mouseMoveEvent(QMouseEvent *event)
 		else
 			tumble.moveView(dx*2, dy*2, true);
 		_SetupModelMatrix();
-		updateGL();
+		update();
 	}
 	else if (occupation == OCCUPATION_DRAWING)
 	{
@@ -643,13 +643,13 @@ void MazeWidget3D::mouseMoveEvent(QMouseEvent *event)
 			lastTilePos = curTilePos;
 		}
 		drawPoints.append(mapPoint);
-		updateGL();
+		update();
 	}
 	else if (occupation == OCCUPATION_PAINTING)
 	{
 		const QPoint mapPoint = _Unproject(event->pos());
 		maze.continuePaintingWallTexture(mapPoint);
-		updateGL();
+		update();
 	}
 }
 
@@ -669,7 +669,7 @@ void MazeWidget3D::levelView()
 
 	_SetupProjectionMatrix();
 	_SetupModelMatrix();
-	updateGL();
+	update();
 }
 
 void MazeWidget3D::wheelEvent(QWheelEvent *event)
@@ -685,7 +685,7 @@ void MazeWidget3D::wheelEvent(QWheelEvent *event)
 			else
 				scaleFactor /= 1.1;
 			_SetupModelMatrix();
-			updateGL();
+			update();
 			emit(zoomChanged());
 		}
 
@@ -701,7 +701,7 @@ void MazeWidget3D::wheelEvent(QWheelEvent *event)
 				editingScaleFactor /= 1.1;
 			_SetupProjectionMatrix();
 			_SetupModelMatrix();
-			updateGL();
+			update();
 			emit(zoomChanged());
 		}
 
@@ -732,7 +732,7 @@ void MazeWidget3D::keyPressEvent(QKeyEvent *event)
 				editingScaleFactor /= 1.1;
 			_SetupProjectionMatrix();
 			_SetupModelMatrix();
-			updateGL();
+			update();
 			emit(zoomChanged());
 		}
 		break;
@@ -937,7 +937,7 @@ void MazeWidget3D::slot_SetVerticalOffset(int x)
 	// if (noticableDifference)
 	{
 		_SetupModelMatrix();
-		updateGL();
+		update();
 	}
 }
 
@@ -948,7 +948,7 @@ void MazeWidget3D::slot_SetHorizontalOffset(int x)
 	// if (noticableDifference)
 	{
 		_SetupModelMatrix();
-		updateGL();
+		update();
 	}
 }
 
