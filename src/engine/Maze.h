@@ -76,7 +76,7 @@ public:
 	QPointF addDisplacement(const QPointF &position, QPointF displacement) const;
 
 	void drawGrid() const;
-	void draw() const;
+	void draw(bool orthographicMode = false) const;
 protected:
 	void _RefreshTiles();
 	void _DrawStartingOrientation() const;

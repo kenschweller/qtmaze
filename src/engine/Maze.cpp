@@ -256,6 +256,19 @@ bool Maze::save(const QString &filename) const
 		}
 		out << "\n";
 	}
+	out << "wallheights\n";
+	for (int row = 0; row < walls.height; row++)
+	{
+		for (int col = 0; col < walls.width; col++)
+		{
+			const Walls::Heights & corner = walls.internalHeightsAt(row, col);
+			out << EncodeNumberToChar(corner.north);
+			out << EncodeNumberToChar(corner.south);
+			out << EncodeNumberToChar(corner.east);
+			out << EncodeNumberToChar(corner.west);
+		}
+		out << "\n";
+	}
 
 	out << "start row " << startingOrientation.tile.y() << " col " << startingOrientation.tile.x() << " side " << startingOrientation.directionToString() << "\n";
 
@@ -565,12 +578,13 @@ void Maze::drawGrid() const
 	tiles.drawGrid();
 }
 
-void Maze::draw() const
+void Maze::draw(bool orthographicMode) const
 {
 	tiles.drawFloor();
 	tiles.drawCeiling();
-	walls.draw();
-	walls.drawTops();
+	walls.draw(orthographicMode);
+	// if (orthographicMode)
+		// walls.drawTops();
 	pictures.draw();
 
 	/*glEnable(GL_LIGHTING);

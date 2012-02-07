@@ -43,6 +43,14 @@ public:
 		quint8 south_southwest;
 		quint8 south_southeast;
 	};
+	struct Heights
+	{
+		Heights() : north(10), south(10), east(10), west(10) {}
+		quint8 north;
+		quint8 south;
+		quint8 east;
+		quint8 west;
+	};
 public:
 	Walls();
 	~Walls();
@@ -64,6 +72,8 @@ public:
 	int at(const QPoint &vertex) const;
 	const TextureIDs & internalTextureIdAt(int row, int col) const;
 	const TextureIDs & internalTextureIdAt(const QPoint &vertex) const;
+	const Heights & internalHeightsAt(int row, int col) const;
+	const Heights & internalHeightsAt(const QPoint &vertex) const;
 
 	bool addWallBetweenVertices(const QPoint &a, const QPoint &b);
 	void removeWallBetweenVertices(const QPoint &a, const QPoint &b);
@@ -72,7 +82,7 @@ public:
 	void setWallHeight(const Orientation &p, const int newHeight);
 
 	void setContext(QGLWidget *newContext);
-	void draw() const;
+	void draw(bool orthographicMode = false) const;
 	void drawTops() const;
 protected:
 	void _AddTexture(const QString &filename);
@@ -85,7 +95,7 @@ protected:
 	int height;
 	QVector<int> walls;
 	QVector<TextureIDs> texturemap;
-	QVector<TextureIDs> heightmap;
+	QVector<Heights> heightmap;
 	WallTextures textures;
 
 	friend class Maze;

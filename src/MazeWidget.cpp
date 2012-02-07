@@ -856,7 +856,7 @@ void MazeWidget3D::paintGL()
 		// oldMaze = maze;
 		// glNewList(displayListMaze, GL_COMPILE);
 		maze.drawGrid(); // if (!playing)
-		maze.draw();
+		maze.draw(mode == MODE_EDITING);
 		// glEndList();
 	}
 
