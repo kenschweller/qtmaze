@@ -38,15 +38,8 @@ void Walls::clear()
 {
 	walls.fill(NoWalls);
 	texturemap.fill(TextureIDs());
+	heightmap.fill(Heights());
 	textures.clear();
-
-	TextureIDs tmp;
-	tmp.vertex = 10;
-	tmp.east_northeast = 10;
-	tmp.east_southeast = 10;
-	tmp.south_southwest = 10;
-	tmp.south_southeast = 10;
-	heightmap.fill(tmp);
 }
 
 bool Walls::read(QFile &file)
@@ -71,10 +64,16 @@ bool Walls::read(QFile &file)
 	// make the wall connections bidirectional
 	for (int row = 1; row < height; row++)
 	{
-		for (int col = 1; col < width; col++)
+		for (int col = 0; col < width; col++)
 		{
 			if (at(row-1, col) & Walls::SouthWall)
 				at(row, col) |= Walls::NorthWall;
+		}
+	}
+	for (int row = 0; row < height; row++)
+	{
+		for (int col = 1; col < width; col++)
+		{
 			if (at(row, col-1) & Walls::EastWall)
 				at(row, col) |= Walls::WestWall;
 		}
@@ -122,6 +121,24 @@ bool Walls::readHeightmap(QFile &file)
 		if (!file.canReadLine())
 			return false;
 		const QString line = file.readLine().trimmed();
+		if (line.size() < width*(2*4))
+			return false;
+		for (int col = 0; col < width; col++)
+		{
+			quint8 ids[4];
+			for (int i = 0; i < 4; i++)
+			{
+				const QString numberString = line.mid(col*(2*4) + i*2, 2);
+				bool ok = false;
+				ids[i] = numberString.toUInt(&ok, 16);
+				if (!ok)
+					return false;
+			}
+			heightmap[row*width + col].north = ids[0];
+			heightmap[row*width + col].south = ids[1];
+			heightmap[row*width + col].east  = ids[2];
+			heightmap[row*width + col].west  = ids[3];
+		}
 	}
 	return true;
 }
@@ -174,6 +191,16 @@ Walls::TextureIDs & Walls::internalTextureIdAt(int row, int col)
 Walls::TextureIDs & Walls::internalTextureIdAt(const QPoint &vertex)
 {
 	return internalTextureIdAt(vertex.y(), vertex.x());
+}
+
+const Walls::Heights & Walls::internalHeightsAt(int row, int col) const
+{
+	return heightmap[row*width + col];
+}
+
+const Walls::Heights & Walls::internalHeightsAt(const QPoint &vertex) const
+{
+	return internalHeightsAt(vertex.y(), vertex.x());
 }
 
 bool Walls::addWallBetweenVertices(const QPoint &a, const QPoint &b)
@@ -310,27 +337,23 @@ void Walls::setWallHeight(const Orientation &p, const int newHeight)
 	switch (p.direction)
 	{
 		case Orientation::North:
-		heightmap[p.tile.y()*width+p.tile.x()].east_southeast = newHeight;
-		heightmap[p.tile.y()*width+p.tile.x()].vertex = newHeight;
-		heightmap[p.tile.y()*width+p.tile.x()+1].vertex = newHeight;
+		heightmap[p.tile.y()*width+p.tile.x()].east = newHeight;
+		heightmap[p.tile.y()*width+p.tile.x()+1].west = newHeight;
 		break;
 
 		case Orientation::South:
-		heightmap[(p.tile.y()+1)*width+p.tile.x()].east_northeast = newHeight;
-		heightmap[(p.tile.y()+1)*width+p.tile.x()].vertex = newHeight;
-		heightmap[(p.tile.y()+1)*width+p.tile.x()+1].vertex = newHeight;
+		heightmap[(p.tile.y()+1)*width+p.tile.x()].east = newHeight;
+		heightmap[(p.tile.y()+1)*width+p.tile.x()+1].west = newHeight;
 		break;
 
 		case Orientation::East:
-		heightmap[p.tile.y()*width+p.tile.x()+1].south_southwest = newHeight;
-		heightmap[p.tile.y()*width+p.tile.x()+1].vertex = newHeight;
-		heightmap[(p.tile.y()+1)*width+p.tile.x()+1].vertex = newHeight;
+		heightmap[p.tile.y()*width+p.tile.x()+1].south = newHeight;
+		heightmap[(p.tile.y()+1)*width+p.tile.x()+1].north = newHeight;
 		break;
 
 		case Orientation::West:
-		heightmap[p.tile.y()*width+p.tile.x()].south_southeast = newHeight;
-		heightmap[p.tile.y()*width+p.tile.x()].vertex = newHeight;
-		heightmap[(p.tile.y()+1)*width+p.tile.x()].vertex = newHeight;
+		heightmap[p.tile.y()*width+p.tile.x()].south = newHeight;
+		heightmap[(p.tile.y()+1)*width+p.tile.x()].north = newHeight;
 		break;
 	}
 }
@@ -340,7 +363,7 @@ void Walls::setContext(QGLWidget *newContext)
 	textures.setContext(newContext);
 }
 // #include <QDebug>
-void Walls::draw() const
+void Walls::draw(bool orthographicMode) const
 {
 	// qDebug() << "Started drawing...";
 	for (WallTextures::InternalIdToIdMap::const_iterator it = textures.texturesAvailable().begin(); it != textures.texturesAvailable().end(); it++)
@@ -361,21 +384,21 @@ void Walls::draw() const
 						case NorthWall:
 						glNormal3iv(northWallNormal);
 						glTexCoord2i(0, 0); // upper north-west corner
-						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
+						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE*heightmap[i].north/10);
 						glTexCoord2i(0, 1); // lower north-west corner
 						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, 0);
 						glTexCoord2i(1, 1); // lower north-east corner
 						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, 0);
 						glTexCoord2i(1, 0); // upper north-east corner
-						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
+						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE*heightmap[i].north/10);
 						break;
 
 						case SouthWall:
 						glNormal3iv(southWallNormal);
 						glTexCoord2i(1, 0); // upper south-west corner
-						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
+						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE*heightmap[i].south/10);
 						glTexCoord2i(0, 0); // upper south-east corner
-						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE);
+						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, -GRID_SIZE*heightmap[i].south/10);
 						glTexCoord2i(0, 1); // lower south-east corner
 						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE, 0);
 						glTexCoord2i(1, 1); // lower south-west corner
@@ -385,9 +408,9 @@ void Walls::draw() const
 						case WestWall:
 						glNormal3iv(westWallNormal);
 						glTexCoord2i(1, 0); // upper north-west corner
-						glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
+						glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].west/10);
 						glTexCoord2i(0, 0); // upper south-west corner
-						glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
+						glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].west/10);
 						glTexCoord2i(0, 1); // lower south-west corner
 						glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
 						glTexCoord2i(1, 1); // lower north-west corner
@@ -397,13 +420,13 @@ void Walls::draw() const
 						case EastWall:
 						glNormal3iv(eastWallNormal);
 						glTexCoord2i(0, 0); // upper north-east corner
-						glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
+						glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].east/10);
 						glTexCoord2i(0, 1); // lower north-east corner
 						glVertex3i(col*GRID_SIZE, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
 						glTexCoord2i(1, 1); // lower south-east corner
 						glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
 						glTexCoord2i(1, 0); // upper south-east corner
-						glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
+						glVertex3i(col*GRID_SIZE, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].east/10);
 						break;
 					}
 				}
@@ -427,26 +450,51 @@ void Walls::draw() const
 					{
 						glNormal3iv(northWallNormal);
 						glTexCoord2i(0, 0); // upper north-west corner
-						glVertex3i(col*GRID_SIZE+leftOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
+						glVertex3i(col*GRID_SIZE+leftOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].east/10);
 						glTexCoord2i(0, 1); // lower north-west corner
 						glVertex3i(col*GRID_SIZE+leftOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
 						glTexCoord2i(1, 1); // lower north-east corner
 						glVertex3i((col+1)*GRID_SIZE-rightOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
 						glTexCoord2i(1, 0); // upper north-east corner
-						glVertex3i((col+1)*GRID_SIZE-rightOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE);
+						glVertex3i((col+1)*GRID_SIZE-rightOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].east/10);
+
+						// if (!orthographicMode)
+						{
+							glNormal3iv(floorNormal);
+							glTexCoord2i(1, 1); // outer east corner
+							glVertex3i((col+1)*GRID_SIZE-rightOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].east/10);
+							glTexCoord2i(1, 0); // inner east corner
+							glVertex3i((col+1)*GRID_SIZE, row*GRID_SIZE, -GRID_SIZE*heightmap[i].east/10);
+							glTexCoord2i(0, 0); // inner west corner
+							glVertex3i(col*GRID_SIZE, row*GRID_SIZE, -GRID_SIZE*heightmap[i].east/10);
+							glTexCoord2i(0, 1); // outer west corner
+							glVertex3i(col*GRID_SIZE+leftOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].east/10);
+						}
 					}
 
 					if (texturemap[i].east_northeast == it.key())
 					{
 						glNormal3iv(southWallNormal);
 						glTexCoord2i(1, 0); // upper south-west corner
-						glVertex3i(col*GRID_SIZE+leftOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
+						glVertex3i(col*GRID_SIZE+leftOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].east/10);
 						glTexCoord2i(0, 0); // upper south-east corner
-						glVertex3i((col+1)*GRID_SIZE-rightOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE);
+						glVertex3i((col+1)*GRID_SIZE-rightOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].east/10);
 						glTexCoord2i(0, 1); // lower south-east corner
 						glVertex3i((col+1)*GRID_SIZE-rightOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
 						glTexCoord2i(1, 1); // lower south-west corner
 						glVertex3i(col*GRID_SIZE+leftOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
+
+						// if (!orthographicMode)
+						{
+							glTexCoord2i(0, 0); // outer west corner
+							glVertex3i(col*GRID_SIZE+leftOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].east/10);
+							glTexCoord2i(0, 1); // inner west corner
+							glVertex3i(col*GRID_SIZE, row*GRID_SIZE, -GRID_SIZE*heightmap[i].east/10);
+							glTexCoord2i(1, 1); // inner east corner
+							glVertex3i((col+1)*GRID_SIZE, row*GRID_SIZE, -GRID_SIZE*heightmap[i].east/10);
+							glTexCoord2i(1, 0); // outer east corner
+							glVertex3i((col+1)*GRID_SIZE-rightOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].east/10);
+						}
 					}
 				}
 				if (walls[i] & SouthWall)
@@ -469,26 +517,51 @@ void Walls::draw() const
 					{
 						glNormal3iv(westWallNormal);
 						glTexCoord2i(1, 0); // upper north-west corner
-						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetRight, -GRID_SIZE);
+						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetRight, -GRID_SIZE*heightmap[i].south/10);
 						glTexCoord2i(0, 0); // upper south-west corner
-						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetRight, -GRID_SIZE);
+						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetRight, -GRID_SIZE*heightmap[i].south/10);
 						glTexCoord2i(0, 1); // lower south-west corner
 						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetRight, 0);
 						glTexCoord2i(1, 1); // lower north-west corner
 						glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetRight, 0);
+
+						// if (!orthographicMode)
+						{
+							glTexCoord2i(0, 0); // inner north corner
+							glVertex3i(col*GRID_SIZE, row*GRID_SIZE, -GRID_SIZE*heightmap[i].south/10);
+							glTexCoord2i(0, 1); // inner south corner
+							glVertex3i(col*GRID_SIZE, (row+1)*GRID_SIZE, -GRID_SIZE*heightmap[i].south/10);
+							glTexCoord2i(1, 1); // outer south corner
+							glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetRight, -GRID_SIZE*heightmap[i].south/10);
+							glTexCoord2i(1, 0); // outer north corner
+							glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetRight, -GRID_SIZE*heightmap[i].south/10);
+						}
 					}
 
 					if (texturemap[i].south_southwest == it.key())
 					{
 						glNormal3iv(eastWallNormal);
 						glTexCoord2i(0, 0); // upper north-east corner
-						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetLeft, -GRID_SIZE);
+						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetLeft, -GRID_SIZE*heightmap[i].south/10);
 						glTexCoord2i(0, 1); // lower north-east corner
 						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetLeft, 0);
 						glTexCoord2i(1, 1); // lower south-east corner
 						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetLeft, 0);
 						glTexCoord2i(1, 0); // upper south-east corner
-						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetLeft, -GRID_SIZE);
+						glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetLeft, -GRID_SIZE*heightmap[i].south/10);
+
+						// if (!orthographicMode)
+						{
+							glNormal3iv(eastWallNormal);
+							glTexCoord2i(1, 1); // inner south corner
+							glVertex3i(col*GRID_SIZE, (row+1)*GRID_SIZE, -GRID_SIZE*heightmap[i].south/10);
+							glTexCoord2i(0, 1); // inner north corner
+							glVertex3i(col*GRID_SIZE, row*GRID_SIZE, -GRID_SIZE*heightmap[i].south/10);
+							glTexCoord2i(0, 0); // outer north corner
+							glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetLeft, -GRID_SIZE*heightmap[i].south/10);
+							glTexCoord2i(0, 1); // outer south corner
+							glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetLeft, -GRID_SIZE*heightmap[i].south/10);
+						}
 					}
 				}
 			}

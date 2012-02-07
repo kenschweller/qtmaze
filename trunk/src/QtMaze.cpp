@@ -14,6 +14,7 @@
 #include <QMenu>
 #include <QAction>
 #include <QLineEdit>
+#include <QLabel>
 #include <QKeySequence>
 
 #include <QFileDialog>
@@ -121,6 +122,13 @@ void QtMaze::_PopulateToolbars()
 	wallModeGroup->addAction(wallPaintingModeAction);
 	wallModeGroup->addAction(wallHeightSettingModeAction);
 	wallPlacingModeAction->setChecked(true);
+	toolbar->addSeparator();
+	QSpinBox * const wallHeight = new QSpinBox;
+	wallHeight->setRange(1, 10);
+	wallHeight->setValue(10);
+	connect(wallHeight, SIGNAL(valueChanged(int)), mazeWidget3d, SLOT(slot_SetCurrentWallHeight(int)));
+	toolbar->addWidget(new QLabel("Wall Height:"));
+	toolbar->addWidget(wallHeight);
 	toolbar->addSeparator();
 	QAction * const editingModeAction = toolbar->addAction("Top-Down View", this, SLOT(slot_SwitchToEditingMode()));
 	QAction * const overviewModeAction = toolbar->addAction("Perspective View", this, SLOT(slot_SwitchToOverviewMode()));
