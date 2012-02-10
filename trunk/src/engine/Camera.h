@@ -2,6 +2,7 @@
 #define CAMERA_H
 
 #include <QVector3D>
+#include <QScopedPointer>
 #include <QGLWidget>
 #include <memory>
 
@@ -25,7 +26,14 @@ public:
 	QVector3D view;
 	QVector3D up;
 
-	static std::auto_ptr<GLUquadric> quadric;
+	struct GLUquadricDeleter
+	{
+		static inline void cleanup(GLUquadric *pointer)
+		{
+			gluDeleteQuadric(pointer);
+		}
+	};
+	static QScopedPointer<GLUquadric, GLUquadricDeleter> quadric;
 };
 
 #endif
