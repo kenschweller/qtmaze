@@ -581,7 +581,7 @@ void Maze::drawGrid() const
 void Maze::draw(bool orthographicMode) const
 {
 	tiles.drawFloor();
-	tiles.drawCeiling();
+	// tiles.drawCeiling();
 	walls.draw(orthographicMode);
 	// if (orthographicMode)
 		// walls.drawTops();

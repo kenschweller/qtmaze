@@ -469,6 +469,16 @@ void Walls::draw(bool orthographicMode) const
 							glVertex3i(col*GRID_SIZE, row*GRID_SIZE, -GRID_SIZE*heightmap[i].east/10);
 							glTexCoord2i(0, 1); // outer west corner
 							glVertex3i(col*GRID_SIZE+leftOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].east/10);
+
+							glNormal3iv(ceilingNormal);
+							glTexCoord2i(0, 1); // outer west corner
+							glVertex3i(col*GRID_SIZE+leftOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
+							glTexCoord2i(0, 0); // inner west corner
+							glVertex3i(col*GRID_SIZE, row*GRID_SIZE, 0);
+							glTexCoord2i(1, 0); // inner east corner
+							glVertex3i((col+1)*GRID_SIZE, row*GRID_SIZE, 0);
+							glTexCoord2i(1, 1); // outer east corner
+							glVertex3i((col+1)*GRID_SIZE-rightOffsetBottom, row*GRID_SIZE+HALF_WALL_WIDTH, 0);
 						}
 					}
 
@@ -486,6 +496,7 @@ void Walls::draw(bool orthographicMode) const
 
 						// if (!orthographicMode)
 						{
+							glNormal3iv(floorNormal);
 							glTexCoord2i(0, 0); // outer west corner
 							glVertex3i(col*GRID_SIZE+leftOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].east/10);
 							glTexCoord2i(0, 1); // inner west corner
@@ -494,6 +505,16 @@ void Walls::draw(bool orthographicMode) const
 							glVertex3i((col+1)*GRID_SIZE, row*GRID_SIZE, -GRID_SIZE*heightmap[i].east/10);
 							glTexCoord2i(1, 0); // outer east corner
 							glVertex3i((col+1)*GRID_SIZE-rightOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, -GRID_SIZE*heightmap[i].east/10);
+
+							glNormal3iv(ceilingNormal);
+							glTexCoord2i(1, 0); // outer east corner
+							glVertex3i((col+1)*GRID_SIZE-rightOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
+							glTexCoord2i(1, 1); // inner east corner
+							glVertex3i((col+1)*GRID_SIZE, row*GRID_SIZE, 0);
+							glTexCoord2i(0, 1); // inner west corner
+							glVertex3i(col*GRID_SIZE, row*GRID_SIZE, 0);
+							glTexCoord2i(0, 0); // outer west corner
+							glVertex3i(col*GRID_SIZE+leftOffsetTop, row*GRID_SIZE-HALF_WALL_WIDTH, 0);
 						}
 					}
 				}
@@ -527,6 +548,7 @@ void Walls::draw(bool orthographicMode) const
 
 						// if (!orthographicMode)
 						{
+							glNormal3iv(floorNormal);
 							glTexCoord2i(0, 0); // inner north corner
 							glVertex3i(col*GRID_SIZE, row*GRID_SIZE, -GRID_SIZE*heightmap[i].south/10);
 							glTexCoord2i(0, 1); // inner south corner
@@ -535,6 +557,16 @@ void Walls::draw(bool orthographicMode) const
 							glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetRight, -GRID_SIZE*heightmap[i].south/10);
 							glTexCoord2i(1, 0); // outer north corner
 							glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetRight, -GRID_SIZE*heightmap[i].south/10);
+
+							glNormal3iv(ceilingNormal);
+							glTexCoord2i(1, 0); // outer north corner
+							glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetRight, 0);
+							glTexCoord2i(1, 1); // outer south corner
+							glVertex3i(col*GRID_SIZE+HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetRight, 0);
+							glTexCoord2i(0, 1); // inner south corner
+							glVertex3i(col*GRID_SIZE, (row+1)*GRID_SIZE, 0);
+							glTexCoord2i(0, 0); // inner north corner
+							glVertex3i(col*GRID_SIZE, row*GRID_SIZE, 0);
 						}
 					}
 
@@ -552,7 +584,7 @@ void Walls::draw(bool orthographicMode) const
 
 						// if (!orthographicMode)
 						{
-							glNormal3iv(eastWallNormal);
+							glNormal3iv(floorNormal);
 							glTexCoord2i(1, 1); // inner south corner
 							glVertex3i(col*GRID_SIZE, (row+1)*GRID_SIZE, -GRID_SIZE*heightmap[i].south/10);
 							glTexCoord2i(0, 1); // inner north corner
@@ -561,6 +593,16 @@ void Walls::draw(bool orthographicMode) const
 							glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetLeft, -GRID_SIZE*heightmap[i].south/10);
 							glTexCoord2i(0, 1); // outer south corner
 							glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetLeft, -GRID_SIZE*heightmap[i].south/10);
+
+							glNormal3iv(ceilingNormal);
+							glTexCoord2i(0, 1); // outer south corner
+							glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, (row+1)*GRID_SIZE-bottomOffsetLeft, 0);
+							glTexCoord2i(0, 0); // outer north corner
+							glVertex3i(col*GRID_SIZE-HALF_WALL_WIDTH, row*GRID_SIZE+topOffsetLeft, 0);
+							glTexCoord2i(0, 1); // inner north corner
+							glVertex3i(col*GRID_SIZE, row*GRID_SIZE, 0);
+							glTexCoord2i(1, 1); // inner south corner
+							glVertex3i(col*GRID_SIZE, (row+1)*GRID_SIZE, 0);
 						}
 					}
 				}
