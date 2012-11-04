@@ -458,6 +458,7 @@ void Maze::continuePaintingWallTexture(const QPoint &p)
 
 void Maze::endPaintingWallTexture(bool dropped)
 {
+	Q_UNUSED(dropped);
 	dropping.dragging = Dropping::DRAGGING_NONE;
 }
 
@@ -477,6 +478,7 @@ void Maze::continueSettingWallHeight(const QPoint &p)
 
 void Maze::endSettingWallHeight(bool dropped)
 {
+	Q_UNUSED(dropped);
 	dropping.dragging = Dropping::DRAGGING_NONE;
 }
 

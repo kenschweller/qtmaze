@@ -51,8 +51,8 @@ QPoint MazeWidget3D::_Unproject(const QPoint &point, bool wallsToo)
 	const QVector3D rayStart(x2, y2, z2);
 	const QVector3D rayDirection = (rayEnd - rayStart).normalized();
 
-	const QVector3D mapCenter = QVector3D(maze.getWidth()/2, maze.getHeight()/2, -GRID_SIZE/2);// + tumble.position;
-	QVector3D viewFrom = mapCenter - tumble.view*(maze.getWidth() > maze.getHeight() ? maze.getWidth() : maze.getHeight())*1.3*scaleFactor;
+	// const QVector3D mapCenter = QVector3D(maze.getWidth()/2, maze.getHeight()/2, -GRID_SIZE/2);// + tumble.position;
+	//QVector3D viewFrom = mapCenter - tumble.view*(maze.getWidth() > maze.getHeight() ? maze.getWidth() : maze.getHeight())*1.3*scaleFactor;
 
 	if (mode == MODE_OVERVIEW || mode == MODE_MOUSELOOK)
 	{
@@ -399,6 +399,7 @@ void MazeWidget3D::dragEnterEvent(QDragEnterEvent *event)
 
 void MazeWidget3D::dragLeaveEvent(QDragLeaveEvent *event)
 {
+	Q_UNUSED(event);
 	maze.endDroppingImage(false);
 	maze.endDroppingGoal(false);
 	update();
@@ -674,6 +675,7 @@ void MazeWidget3D::mouseMoveEvent(QMouseEvent *event)
 
 void MazeWidget3D::mouseDoubleClickEvent(QMouseEvent *event)
 {
+	Q_UNUSED(event);
 	if (mode != MODE_MOUSELOOK)
 		return;
 	levelView();
