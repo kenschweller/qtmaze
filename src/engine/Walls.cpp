@@ -365,6 +365,7 @@ void Walls::setContext(QGLWidget *newContext)
 // #include <QDebug>
 void Walls::draw(bool orthographicMode) const
 {
+	Q_UNUSED(orthographicMode);
 	// qDebug() << "Started drawing...";
 	for (WallTextures::InternalIdToIdMap::const_iterator it = textures.texturesAvailable().begin(); it != textures.texturesAvailable().end(); it++)
 	{

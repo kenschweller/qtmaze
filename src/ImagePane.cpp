@@ -47,6 +47,7 @@ ImagePane::ImagePane(QWidget *parent) : QDockWidget("Image Picker", parent), _la
 // #include <QDebug>
 void ImagePane::slot_CurrentItemChanged(QListWidgetItem *current, QListWidgetItem *previous)
 {
+	Q_UNUSED(previous);
 	// qDebug() << "ImagePane::slot_CurrentItemChanged: Current item changed to " << current->text();
 	emit(wallTextureChanged(current->text()));
 }

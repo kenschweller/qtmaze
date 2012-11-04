@@ -4,6 +4,7 @@
 #include <QVector3D>
 #include <QScopedPointer>
 #include <QGLWidget>
+#include <GL/glu.h>
 #include <memory>
 
 class Camera
