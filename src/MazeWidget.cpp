@@ -4,6 +4,8 @@
 
 #include <QApplication>
 #include <QFileInfo>
+#include <QDrag>
+#include <QMimeData>
 #include <QDragEnterEvent>
 #include <QMouseEvent>
 #include <QWheelEvent>
@@ -287,10 +289,10 @@ static const float JOYSTICK_AXIS_DIVISOR = 65536.0/2.0;
 
 QVector3D MazeWidget3D::_GetJoystickDirection()
 {
-	float y_axis = -static_cast<float>(SDL_JoystickGetAxis(joystick, 1));
+	float y_axis = -static_cast<float>(SDL_JoystickGetAxis(joystick, 1))/JOYSTICK_AXIS_DIVISOR;
 	if (fabs(y_axis) <= joystickDeadZone)
 		y_axis = 0.0;
-	return camera.getForward() * y_axis/JOYSTICK_AXIS_DIVISOR;
+	return camera.getForward() * y_axis;
 }
 
 float MazeWidget3D::_GetKeyboardTurning()
