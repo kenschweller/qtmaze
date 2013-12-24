@@ -8,7 +8,9 @@ FilePane::FilePane(QWidget *parent) : QDockWidget("Maze File Browser", parent), 
 {
 	fileModel = new QFileSystemModel(this);
 	// fileModel->setRootPath(workingDirectory.absolutePath());
+#if QT_VERSION < 0x050000 // TODO a Qt5 specific version?
 	fileModel->setSupportedDragActions(Qt::CopyAction);
+#endif
 	fileModel->setRootPath(QDir::currentPath());
 	fileModel->setNameFilterDisables(false);
 	fileModel->setFilter(QDir::Drives | QDir::AllDirs | QDir::Files | QDir::NoDotAndDotDot);

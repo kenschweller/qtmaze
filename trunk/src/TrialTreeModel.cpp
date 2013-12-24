@@ -13,7 +13,9 @@ TrialTreeModel::TrialTreeModel(QObject *parent) : QStandardItemModel(parent)
 
 	setColumnCount(1);
 	setHeaderData(0, Qt::Horizontal, "Maze File");
+#if QT_VERSION < 0x050000
 	setSupportedDragActions(Qt::MoveAction);
+#endif
 }
 
 TrialTreeModel::~TrialTreeModel()
@@ -70,3 +72,10 @@ bool TrialTreeModel::dropMimeData(const QMimeData *mimeData, Qt::DropAction acti
 	}
 	return false;
 }
+
+#if QT_VERSION >= 0x050000
+Qt::DropActions TrialTreeModel::supportedDragActions() const
+{
+	return Qt::MoveAction;
+}
+#endif
