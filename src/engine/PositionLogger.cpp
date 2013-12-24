@@ -29,7 +29,11 @@ void PositionLogger::start(const QString &filename, const QString &subjectName, 
 		msg.exec();
 		return;
 	}
+#if QT_VERSION >= 0x050000
+	printf("Started logging to file '%s'...\n", filename.toLatin1().data());
+#else
 	printf("Started logging to file '%s'...\n", filename.toAscii().data());
+#endif
 	outStream.setDevice(&outFile);
 	outStream << "# Maze: \"" << mazeFileName << "\"\n";
 	outStream << "# Subject: \"" << subjectName << "\"\n";
@@ -62,7 +66,11 @@ void PositionLogger::end()
 {
 	if (outFile.isOpen())
 	{
+#if QT_VERSION >= 0x050000
+		printf("...Stopped logging to '%s'!\n", outFile.fileName().toLatin1().data());
+#else
 		printf("...Stopped logging to '%s'!\n", outFile.fileName().toAscii().data());
+#endif
 		outStream.setDevice(NULL);
 		outFile.close();
 	}
